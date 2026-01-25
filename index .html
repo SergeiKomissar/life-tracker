@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0f1a">
+    <title>Life Tracker — 90 лет</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(180deg, #0a0f1a 0%, #111827 50%, #0a0f1a 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 16px;
+            padding-bottom: 40px;
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.04);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        
+        .hidden { display: none !important; }
+        
+        /* Sync indicator */
+        .sync-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .sync-status.synced {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+        
+        .sync-status.syncing {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+        }
+        
+        .sync-status.offline {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        
+        /* Экран входа */
+        .welcome-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-top: 30px;
+        }
+        
+        .welcome-date {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+        
+        .welcome-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #fff;
+        }
+        
+        /* Счётчик жизни */
+        .life-counter {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15));
+            border-radius: 20px;
+            padding: 24px 20px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+        
+        .age-display {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .age-label {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+        
+        .age-number {
+            font-size: 48px;
+            font-weight: 800;
+            color: #fff;
+        }
+        
+        .age-unit {
+            font-size: 24px;
+            color: #94a3b8;
+        }
+        
+        .days-lived {
+            font-size: 15px;
+            color: #64748b;
+        }
+        
+        /* Прогресс-бар жизни */
+        .life-progress-container {
+            margin-bottom: 20px;
+        }
+        
+        .life-progress-bar {
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: visible;
+            position: relative;
+        }
+        
+        .life-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #3b82f6);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        .pension-marker {
+            position: absolute;
+            top: -4px;
+            bottom: -4px;
+            width: 3px;
+            background: #f59e0b;
+            border-radius: 2px;
+        }
+        
+        .life-progress-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 6px;
+        }
+        
+        .pension-label { color: #f59e0b; }
+        
+        /* Статистика */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .stat-card {
+            background: rgba(245, 158, 11, 0.15);
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+        }
+        
+        .stat-card.green { background: rgba(16, 185, 129, 0.15); }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #fbbf24;
+        }
+        
+        .stat-card.green .stat-number { color: #10b981; }
+        
+        .stat-label {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        
+        .stat-sublabel {
+            font-size: 11px;
+            color: #64748b;
+        }
+        
+        /* Статистика энергии */
+        .energy-stats {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .energy-stat {
+            flex: 1;
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .energy-stat.high { background: rgba(139, 92, 246, 0.15); }
+        .energy-stat.normal { background: rgba(59, 130, 246, 0.15); }
+        .energy-stat.low { background: rgba(100, 116, 139, 0.15); }
+        
+        .energy-stat-icon { font-size: 20px; }
+        
+        .energy-stat-number {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        
+        .energy-stat.high .energy-stat-number { color: #a78bfa; }
+        .energy-stat.normal .energy-stat-number { color: #60a5fa; }
+        .energy-stat.low .energy-stat-number { color: #94a3b8; }
+        
+        .energy-stat-label {
+            font-size: 10px;
+            color: #64748b;
+        }
+        
+        /* Streak */
+        .streak-banner {
+            margin-top: 12px;
+            padding: 10px;
+            background: rgba(16, 185, 129, 0.15);
+            border-radius: 10px;
+            text-align: center;
+            color: #10b981;
+            font-weight: 600;
+        }
+        
+        /* Выбор энергии */
+        .energy-selector-title {
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #e2e8f0;
+        }
+        
+        .energy-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .energy-btn {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            color: #e2e8f0;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s;
+        }
+        
+        .energy-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .energy-btn.high { background: rgba(139, 92, 246, 0.15); border-color: rgba(139, 92, 246, 0.4); }
+        .energy-btn.normal { background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); }
+        .energy-btn.low { background: rgba(100, 116, 139, 0.15); border-color: rgba(100, 116, 139, 0.4); }
+        
+        .energy-btn-icon { font-size: 36px; }
+        
+        .energy-btn-label {
+            font-size: 17px;
+            font-weight: 600;
+        }
+        
+        .energy-btn.high .energy-btn-label { color: #a78bfa; }
+        .energy-btn.normal .energy-btn-label { color: #60a5fa; }
+        .energy-btn.low .energy-btn-label { color: #94a3b8; }
+        
+        .energy-btn-desc {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+        
+        /* Мотивация */
+        .motivation-box {
+            margin-top: 24px;
+            padding: 16px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 14px;
+            text-align: center;
+            font-size: 14px;
+            color: #94a3b8;
+            font-style: italic;
+        }
+        
+        /* Главный экран */
+        .main-header {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(59, 130, 246, 0.12));
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+        
+        .main-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+        
+        .main-date {
+            font-size: 13px;
+            color: #64748b;
+        }
+        
+        .day-number {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+        
+        .energy-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .energy-badge.high { background: rgba(139, 92, 246, 0.2); }
+        .energy-badge.normal { background: rgba(59, 130, 246, 0.2); }
+        .energy-badge.low { background: rgba(100, 116, 139, 0.2); }
+        
+        .mini-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .mini-stat {
+            text-align: center;
+        }
+        
+        .mini-stat-number {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+        }
+        
+        .mini-stat-number.yellow { color: #fbbf24; }
+        .mini-stat-number.green { color: #10b981; }
+        
+        .mini-stat-label {
+            font-size: 10px;
+            color: #64748b;
+        }
+        
+        /* Статус системы */
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .system-status.incomplete {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        
+        .system-status.complete {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(16, 185, 129, 0.1));
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        
+        .system-icon { font-size: 36px; }
+        
+        .system-info { flex: 1; }
+        
+        .system-title {
+            font-size: 16px;
+            font-weight: 700;
+        }
+        
+        .system-status.complete .system-title { color: #10b981; }
+        
+        .system-subtitle {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        
+        .streak-badge {
+            background: rgba(251, 146, 60, 0.2);
+            padding: 6px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: #fb923c;
+        }
+        
+        /* Чек-листы */
+        .habit-section {
+            margin-bottom: 14px;
+            border-radius: 16px;
+            padding: 16px;
+            background: rgba(255,255,255,0.03);
+            transition: opacity 0.3s;
+        }
+        
+        .habit-section.inactive { opacity: 0.4; }
+        
+        .habit-section.green { border: 1px solid rgba(16, 185, 129, 0.4); }
+        .habit-section.blue { border: 1px solid rgba(59, 130, 246, 0.4); }
+        .habit-section.purple { border: 1px solid rgba(139, 92, 246, 0.4); }
+        
+        .habit-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        
+        .habit-title {
+            font-size: 15px;
+            font-weight: 700;
+        }
+        
+        .habit-title.green { color: #10b981; }
+        .habit-title.blue { color: #3b82f6; }
+        .habit-title.purple { color: #8b5cf6; }
+        
+        .habit-subtitle {
+            font-size: 11px;
+            color: #64748b;
+        }
+        
+        .habit-counter {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        
+        .habit-counter.green { background: rgba(16, 185, 129, 0.25); color: #10b981; }
+        .habit-counter.green.complete { background: #10b981; color: #fff; }
+        .habit-counter.blue { background: rgba(59, 130, 246, 0.25); color: #3b82f6; }
+        .habit-counter.blue.complete { background: #3b82f6; color: #fff; }
+        .habit-counter.purple { background: rgba(139, 92, 246, 0.25); color: #8b5cf6; }
+        .habit-counter.purple.complete { background: #8b5cf6; color: #fff; }
+        
+        .habit-progress {
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+        
+        .habit-progress-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+        
+        .habit-progress-fill.green { background: #10b981; }
+        .habit-progress-fill.blue { background: #3b82f6; }
+        .habit-progress-fill.purple { background: #8b5cf6; }
+        
+        /* Чек-боксы */
+        .habit-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid transparent;
+        }
+        
+        .habit-item:active {
+            transform: scale(0.98);
+        }
+        
+        .habit-item.checked {
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .habit-item.checked.green { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); }
+        .habit-item.checked.blue { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); }
+        .habit-item.checked.purple { background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.3); }
+        
+        .checkbox {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: 2px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        
+        .habit-item.checked .checkbox {
+            border-color: currentColor;
+            background: currentColor;
+        }
+        
+        .habit-item.checked.green .checkbox { color: #10b981; }
+        .habit-item.checked.blue .checkbox { color: #3b82f6; }
+        .habit-item.checked.purple .checkbox { color: #8b5cf6; }
+        
+        .checkbox-mark {
+            color: #fff;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .habit-item.checked .checkbox-mark { display: block; }
+        
+        .habit-item-text { flex: 1; }
+        
+        .habit-item-label {
+            font-size: 14px;
+            color: #e2e8f0;
+            transition: all 0.2s;
+        }
+        
+        .habit-item.checked .habit-item-label {
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+        
+        .habit-item.checked.green .habit-item-label { color: #10b981; }
+        .habit-item.checked.blue .habit-item-label { color: #3b82f6; }
+        .habit-item.checked.purple .habit-item-label { color: #8b5cf6; }
+        
+        .habit-item-why {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+        
+        /* Напоминания */
+        .reminders {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+        
+        .reminders-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f87171;
+            margin-bottom: 10px;
+        }
+        
+        .reminder-item {
+            display: flex;
+            gap: 8px;
+            font-size: 13px;
+            color: #e2e8f0;
+            padding: 4px 0;
+        }
+        
+        /* Кнопка изменения */
+        .change-energy-btn {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            color: #64748b;
+            font-size: 13px;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+        
+        /* Loading */
+        .loading-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            gap: 16px;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sync Status -->
+    <div class="sync-status synced" id="syncStatus">
+        <span id="syncIcon">☁️</span>
+        <span id="syncText">Синхронизировано</span>
+    </div>
+
+    <div class="container">
+        <!-- Loading Screen -->
+        <div id="loadingScreen" class="loading-screen">
+            <div class="loading-spinner"></div>
+            <div style="color: #94a3b8;">Загрузка данных...</div>
+        </div>
+        
+        <!-- Экран входа -->
+        <div id="welcomeScreen" class="hidden">
+            <div class="welcome-header">
+                <div class="welcome-date" id="welcomeDate"></div>
+                <div class="welcome-title">Доброе утро, Сергей</div>
+            </div>
+            
+            <div class="life-counter">
+                <div class="age-display">
+                    <div class="age-label">Тебе сейчас</div>
+                    <div>
+                        <span class="age-number" id="currentAge"></span>
+                        <span class="age-unit">лет</span>
+                    </div>
+                    <div class="days-lived"><span id="daysLived"></span> дней прожито</div>
+                </div>
+                
+                <div class="life-progress-container">
+                    <div class="life-progress-bar">
+                        <div class="pension-marker" id="pensionMarker"></div>
+                        <div class="life-progress-fill" id="lifeProgressFill"></div>
+                    </div>
+                    <div class="life-progress-labels">
+                        <span>0</span>
+                        <span class="pension-label">65 (пенсия)</span>
+                        <span>90 лет</span>
+                    </div>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="daysToPension"></div>
+                        <div class="stat-label">дней до пенсии</div>
+                        <div class="stat-sublabel" id="yearsToPension"></div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-number" id="daysToGoal"></div>
+                        <div class="stat-label">дней до цели 90</div>
+                        <div class="stat-sublabel" id="yearsToGoal"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Статистика энергии -->
+            <div class="card" id="energyStatsCard">
+                <div style="font-size: 14px; color: #94a3b8; margin-bottom: 12px;">
+                    📊 Твоя статистика (<span id="totalDays"></span> дней)
+                </div>
+                <div class="energy-stats">
+                    <div class="energy-stat high">
+                        <div class="energy-stat-icon">🚀</div>
+                        <div class="energy-stat-number" id="highDays">0</div>
+                        <div class="energy-stat-label">высокая</div>
+                    </div>
+                    <div class="energy-stat normal">
+                        <div class="energy-stat-icon">⚡</div>
+                        <div class="energy-stat-number" id="normalDays">0</div>
+                        <div class="energy-stat-label">норма</div>
+                    </div>
+                    <div class="energy-stat low">
+                        <div class="energy-stat-icon">😴</div>
+                        <div class="energy-stat-number" id="lowDays">0</div>
+                        <div class="energy-stat-label">низкая</div>
+                    </div>
+                </div>
+                <div class="streak-banner hidden" id="streakBanner"></div>
+            </div>
+            
+            <!-- Выбор энергии -->
+            <div>
+                <div class="energy-selector-title">Как ты себя чувствуешь сегодня?</div>
+                <div class="energy-buttons">
+                    <button class="energy-btn high" onclick="selectEnergy('high')">
+                        <div class="energy-btn-icon">🚀</div>
+                        <div>
+                            <div class="energy-btn-label">Высокая энергия</div>
+                            <div class="energy-btn-desc">Готов к максимуму</div>
+                        </div>
+                    </button>
+                    <button class="energy-btn normal" onclick="selectEnergy('normal')">
+                        <div class="energy-btn-icon">⚡</div>
+                        <div>
+                            <div class="energy-btn-label">Нормальная энергия</div>
+                            <div class="energy-btn-desc">Стандартный день</div>
+                        </div>
+                    </button>
+                    <button class="energy-btn low" onclick="selectEnergy('low')">
+                        <div class="energy-btn-icon">😴</div>
+                        <div>
+                            <div class="energy-btn-label">Низкая энергия</div>
+                            <div class="energy-btn-desc">Только минимум</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="motivation-box" id="welcomeMotivation"></div>
+        </div>
+        
+        <!-- Основной экран -->
+        <div id="mainScreen" class="hidden">
+            <div class="main-header">
+                <div class="main-header-top">
+                    <div>
+                        <div class="main-date" id="mainDate"></div>
+                        <div class="day-number">День #<span id="trackerDay"></span> в трекере</div>
+                    </div>
+                    <div class="energy-badge" id="energyBadge">
+                        <span id="energyIcon"></span>
+                        <span id="energyLabel"></span>
+                    </div>
+                </div>
+                
+                <div class="mini-stats">
+                    <div class="mini-stat">
+                        <div class="mini-stat-number" id="miniDaysLived"></div>
+                        <div class="mini-stat-label">прожито</div>
+                    </div>
+                    <div class="mini-stat">
+                        <div class="mini-stat-number yellow" id="miniDaysToPension"></div>
+                        <div class="mini-stat-label">до пенсии</div>
+                    </div>
+                    <div class="mini-stat">
+                        <div class="mini-stat-number green" id="miniDaysToGoal"></div>
+                        <div class="mini-stat-label">до 90 лет</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Статус системы -->
+            <div class="system-status" id="systemStatus">
+                <div class="system-icon" id="systemIcon">🔄</div>
+                <div class="system-info">
+                    <div class="system-title" id="systemTitle">Выполни минимум</div>
+                    <div class="system-subtitle" id="systemSubtitle"></div>
+                </div>
+                <div class="streak-badge hidden" id="mainStreakBadge"></div>
+            </div>
+            
+            <!-- Чек-листы -->
+            <div id="habitSections"></div>
+            
+            <!-- Напоминания -->
+            <div class="card reminders">
+                <div class="reminders-title">⚠️ Помни</div>
+                <div class="reminder-item"><span>🩸</span><span>Без добавок с железом (ферритин ~350)</span></div>
+                <div class="reminder-item"><span>☕</span><span>Кофеин ≤150 мг, до 14:00</span></div>
+                <div class="reminder-item"><span>🧂</span><span>Соль ≤5 г, калий ≥4.7 г</span></div>
+            </div>
+            
+            <div class="motivation-box" id="mainMotivation"></div>
+            
+            <button class="change-energy-btn" onclick="showWelcomeScreen()">
+                Изменить уровень энергии
+            </button>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCq10f_AzUXLjsfWEQNRbTUGjBLy-u4hnI",
+            authDomain: "life-tracker-54732.firebaseapp.com",
+            databaseURL: "https://life-tracker-54732-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "life-tracker-54732",
+            storageBucket: "life-tracker-54732.firebasestorage.app",
+            messagingSenderId: "322679590707",
+            appId: "1:322679590707:web:dee9c025719d986e987846"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const userRef = database.ref('users/sergey');
+        
+        // Константы
+        const BIRTH_DATE = new Date(1977, 3, 29); // 29 апреля 1977
+        const PENSION_AGE = 65;
+        const LIFE_GOAL = 90;
+        
+        // Данные
+        let checkedItems = {};
+        let energyLog = {};
+        let todayEnergy = null;
+        let isOnline = true;
+        
+        const today = new Date();
+        const dateKey = today.toISOString().split('T')[0];
+        
+        // Привычки
+        const habits = {
+            minimum: {
+                title: "🎯 МИНИМУМ",
+                subtitle: "Выполни — и день засчитан",
+                color: "green",
+                items: [
+                    { id: 'steps_min', label: '4000 шагов', why: 'Базовая активность для сердца' },
+                    { id: 'protein_meal', label: 'Приём с белком ≥40г + овощи', why: 'Защита мышц' },
+                    { id: 'breathing', label: '5 мин дыхания (6 вд/мин)', why: 'Контроль АД и HRV' },
+                ]
+            },
+            normal: {
+                title: "⚡ НОРМАЛЬНЫЙ ДЕНЬ",
+                color: "blue",
+                items: [
+                    { id: 'steps_full', label: '7000–10000 шагов', why: 'Оптимум' },
+                    { id: 'training', label: 'Тренировка по плану', why: 'Сила и выносливость' },
+                    { id: 'nutrition_track', label: 'Трекинг питания', why: 'Контроль веса' },
+                    { id: 'breathing_2x', label: '2 сессии дыхания', why: 'Поддержка HRV' },
+                    { id: 'sleep_time', label: 'Лечь до 23:30', why: 'Восстановление' },
+                ]
+            },
+            strong: {
+                title: "🚀 СИЛЬНЫЙ ДЕНЬ",
+                color: "purple",
+                items: [
+                    { id: 'extra_training', label: 'Удлинённая тренировка', why: 'Прогресс' },
+                    { id: 'full_tracking', label: 'Полный трекинг нутриентов', why: 'Оптимизация' },
+                ]
+            }
+        };
+        
+        // Мотивационные фразы
+        const motivations = [
+            "До пенсии {daysToPension} дней. Каждый — возможность быть в системе",
+            "Ты прожил {daysLived} дней. Сделай сегодняшний одним из лучших",
+            "{daysToGoal} дней до цели 90 лет. Это {daysToGoal} шансов",
+            "Тебе {age}. До 90 ещё {yearsToGoal} лет возможностей",
+            "Каждый день в системе — шаг к здоровым 90 годам",
+            "Минимум сегодня — инвестиция в завтра",
+            "Ты строишь не тело на лето, а жизнь на 90 лет",
+        ];
+        
+        // Sync status
+        function updateSyncStatus(status) {
+            const el = document.getElementById('syncStatus');
+            const icon = document.getElementById('syncIcon');
+            const text = document.getElementById('syncText');
+            
+            el.className = 'sync-status ' + status;
+            
+            if (status === 'synced') {
+                icon.textContent = '☁️';
+                text.textContent = 'Синхронизировано';
+            } else if (status === 'syncing') {
+                icon.textContent = '🔄';
+                text.textContent = 'Сохранение...';
+            } else {
+                icon.textContent = '📴';
+                text.textContent = 'Офлайн';
+            }
+        }
+        
+        // Firebase sync
+        function saveToFirebase() {
+            updateSyncStatus('syncing');
+            userRef.set({
+                checkedItems,
+                energyLog,
+                lastUpdated: new Date().toISOString()
+            }).then(() => {
+                updateSyncStatus('synced');
+                // Also save locally as backup
+                localStorage.setItem('lifeTrackerBackup', JSON.stringify({ checkedItems, energyLog }));
+            }).catch((error) => {
+                console.error('Firebase save error:', error);
+                updateSyncStatus('offline');
+                // Save locally if offline
+                localStorage.setItem('lifeTrackerBackup', JSON.stringify({ checkedItems, energyLog }));
+            });
+        }
+        
+        function loadFromFirebase() {
+            return new Promise((resolve) => {
+                userRef.once('value').then((snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        checkedItems = data.checkedItems || {};
+                        energyLog = data.energyLog || {};
+                    } else {
+                        // Try loading from local backup
+                        const backup = localStorage.getItem('lifeTrackerBackup');
+                        if (backup) {
+                            const localData = JSON.parse(backup);
+                            checkedItems = localData.checkedItems || {};
+                            energyLog = localData.energyLog || {};
+                        }
+                    }
+                    updateSyncStatus('synced');
+                    resolve();
+                }).catch((error) => {
+                    console.error('Firebase load error:', error);
+                    updateSyncStatus('offline');
+                    // Load from local backup
+                    const backup = localStorage.getItem('lifeTrackerBackup');
+                    if (backup) {
+                        const localData = JSON.parse(backup);
+                        checkedItems = localData.checkedItems || {};
+                        energyLog = localData.energyLog || {};
+                    }
+                    resolve();
+                });
+            });
+        }
+        
+        // Расчёты дат
+        function calculateDates() {
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            
+            const pensionDate = new Date(BIRTH_DATE);
+            pensionDate.setFullYear(pensionDate.getFullYear() + PENSION_AGE);
+            
+            const lifeGoalDate = new Date(BIRTH_DATE);
+            lifeGoalDate.setFullYear(lifeGoalDate.getFullYear() + LIFE_GOAL);
+            
+            const msPerDay = 24 * 60 * 60 * 1000;
+            
+            const daysLived = Math.floor((now - BIRTH_DATE) / msPerDay);
+            const daysToPension = Math.max(0, Math.floor((pensionDate - now) / msPerDay));
+            const daysToGoal = Math.max(0, Math.floor((lifeGoalDate - now) / msPerDay));
+            const totalLifeDays = Math.floor((lifeGoalDate - BIRTH_DATE) / msPerDay);
+            
+            const age = Math.floor(daysLived / 365.25);
+            const yearsToRetirement = Math.max(0, PENSION_AGE - age);
+            const yearsToGoal = LIFE_GOAL - age;
+            const lifeProgress = (daysLived / totalLifeDays) * 100;
+            
+            return { daysLived, daysToPension, daysToGoal, totalLifeDays, age, yearsToRetirement, yearsToGoal, lifeProgress };
+        }
+        
+        // Статистика
+        function getEnergyStats() {
+            const entries = Object.entries(energyLog);
+            return {
+                high: entries.filter(([_, v]) => v === 'high').length,
+                normal: entries.filter(([_, v]) => v === 'normal').length,
+                low: entries.filter(([_, v]) => v === 'low').length,
+                total: entries.length
+            };
+        }
+        
+        function getSystemStats() {
+            const minimumItems = ['steps_min', 'protein_meal', 'breathing'];
+            let daysInSystem = 0;
+            let currentStreak = 0;
+            
+            Object.keys(checkedItems).sort().forEach(date => {
+                const dayChecks = checkedItems[date] || {};
+                if (minimumItems.every(item => dayChecks[item])) {
+                    daysInSystem++;
+                }
+            });
+            
+            // Текущий streak
+            for (let i = 0; i <= 30; i++) {
+                const checkDate = new Date(today);
+                checkDate.setDate(checkDate.getDate() - i);
+                const key = checkDate.toISOString().split('T')[0];
+                const dayChecks = checkedItems[key] || {};
+                if (minimumItems.every(item => dayChecks[item])) {
+                    currentStreak++;
+                } else if (i > 0) {
+                    break;
+                }
+            }
+            
+            const totalDays = Object.keys(energyLog).length || 1;
+            const systemPercent = Math.round((daysInSystem / totalDays) * 100);
+            
+            return { daysInSystem, currentStreak, systemPercent, totalDays };
+        }
+        
+        function isMinimumComplete() {
+            const dayChecks = checkedItems[dateKey] || {};
+            return ['steps_min', 'protein_meal', 'breathing'].every(item => dayChecks[item]);
+        }
+        
+        // Форматирование
+        function formatDate(date) {
+            return date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+        }
+        
+        function formatNumber(num) {
+            return num.toLocaleString('ru-RU');
+        }
+        
+        // Мотивация
+        function getMotivation() {
+            const dates = calculateDates();
+            const stats = getSystemStats();
+            
+            let msgs = [...motivations];
+            if (stats.currentStreak > 0) {
+                msgs.push(`🔥 ${stats.currentStreak} дней подряд в системе. Не ломай серию!`);
+            }
+            if (stats.systemPercent > 0) {
+                msgs.push(`${stats.systemPercent}% дней ты в системе. Держи планку!`);
+            }
+            
+            let msg = msgs[Math.floor(Math.random() * msgs.length)];
+            
+            msg = msg.replace('{daysToPension}', formatNumber(dates.daysToPension));
+            msg = msg.replace('{daysLived}', formatNumber(dates.daysLived));
+            msg = msg.replace('{daysToGoal}', formatNumber(dates.daysToGoal));
+            msg = msg.replace('{age}', dates.age);
+            msg = msg.replace('{yearsToGoal}', dates.yearsToGoal);
+            
+            return '💡 ' + msg;
+        }
+        
+        // UI Updates
+        function updateWelcomeScreen() {
+            const dates = calculateDates();
+            const stats = getEnergyStats();
+            const sysStats = getSystemStats();
+            
+            document.getElementById('welcomeDate').textContent = formatDate(today);
+            document.getElementById('currentAge').textContent = dates.age;
+            document.getElementById('daysLived').textContent = formatNumber(dates.daysLived);
+            document.getElementById('daysToPension').textContent = formatNumber(dates.daysToPension);
+            document.getElementById('yearsToPension').textContent = dates.yearsToRetirement + ' лет';
+            document.getElementById('daysToGoal').textContent = formatNumber(dates.daysToGoal);
+            document.getElementById('yearsToGoal').textContent = dates.yearsToGoal + ' лет';
+            
+            document.getElementById('lifeProgressFill').style.width = dates.lifeProgress + '%';
+            document.getElementById('pensionMarker').style.left = ((PENSION_AGE / LIFE_GOAL) * 100) + '%';
+            
+            // Статистика энергии
+            if (stats.total > 0) {
+                document.getElementById('energyStatsCard').classList.remove('hidden');
+                document.getElementById('totalDays').textContent = stats.total;
+                document.getElementById('highDays').textContent = stats.high;
+                document.getElementById('normalDays').textContent = stats.normal;
+                document.getElementById('lowDays').textContent = stats.low;
+                
+                if (sysStats.currentStreak > 0) {
+                    document.getElementById('streakBanner').textContent = 
+                        `🔥 ${sysStats.currentStreak} ${sysStats.currentStreak === 1 ? 'день' : sysStats.currentStreak < 5 ? 'дня' : 'дней'} подряд в системе`;
+                    document.getElementById('streakBanner').classList.remove('hidden');
+                } else {
+                    document.getElementById('streakBanner').classList.add('hidden');
+                }
+            } else {
+                document.getElementById('energyStatsCard').classList.add('hidden');
+            }
+            
+            document.getElementById('welcomeMotivation').textContent = getMotivation();
+        }
+        
+        function updateMainScreen() {
+            const dates = calculateDates();
+            const stats = getEnergyStats();
+            const sysStats = getSystemStats();
+            
+            document.getElementById('mainDate').textContent = formatDate(today);
+            document.getElementById('trackerDay').textContent = stats.total + (energyLog[dateKey] ? 0 : 1);
+            
+            // Energy badge
+            const badge = document.getElementById('energyBadge');
+            badge.className = 'energy-badge ' + todayEnergy;
+            document.getElementById('energyIcon').textContent = 
+                todayEnergy === 'high' ? '🚀' : todayEnergy === 'normal' ? '⚡' : '😴';
+            document.getElementById('energyLabel').textContent = 
+                todayEnergy === 'high' ? 'Высокая' : todayEnergy === 'normal' ? 'Норма' : 'Низкая';
+            
+            // Mini stats
+            document.getElementById('miniDaysLived').textContent = formatNumber(dates.daysLived);
+            document.getElementById('miniDaysToPension').textContent = formatNumber(dates.daysToPension);
+            document.getElementById('miniDaysToGoal').textContent = formatNumber(dates.daysToGoal);
+            
+            // System status
+            const status = document.getElementById('systemStatus');
+            const complete = isMinimumComplete();
+            status.className = 'system-status ' + (complete ? 'complete' : 'incomplete');
+            document.getElementById('systemIcon').textContent = complete ? '✅' : '🔄';
+            document.getElementById('systemTitle').textContent = complete ? 'Ты в системе!' : 'Выполни минимум';
+            
+            const minProgress = habits.minimum.items.filter(item => (checkedItems[dateKey] || {})[item.id]).length;
+            document.getElementById('systemSubtitle').textContent = complete 
+                ? `${sysStats.daysInSystem + 1} дней в системе (${sysStats.systemPercent}%)`
+                : `Осталось: ${3 - minProgress} из 3`;
+            
+            const streakBadge = document.getElementById('mainStreakBadge');
+            if (sysStats.currentStreak > 0) {
+                streakBadge.textContent = '🔥 ' + sysStats.currentStreak;
+                streakBadge.classList.remove('hidden');
+            } else {
+                streakBadge.classList.add('hidden');
+            }
+            
+            // Render habits
+            renderHabits();
+            
+            document.getElementById('mainMotivation').textContent = getMotivation();
+        }
+        
+        function renderHabits() {
+            const container = document.getElementById('habitSections');
+            container.innerHTML = '';
+            
+            Object.entries(habits).forEach(([key, section]) => {
+                const isActive = key === 'minimum' || 
+                    (key === 'normal' && todayEnergy !== 'low') ||
+                    (key === 'strong' && todayEnergy === 'high');
+                
+                const dayChecks = checkedItems[dateKey] || {};
+                const checkedCount = section.items.filter(item => dayChecks[item.id]).length;
+                const percent = Math.round((checkedCount / section.items.length) * 100);
+                
+                const sectionEl = document.createElement('div');
+                sectionEl.className = `habit-section ${section.color} ${isActive ? '' : 'inactive'}`;
+                
+                sectionEl.innerHTML = `
+                    <div class="habit-header">
+                        <div>
+                            <div class="habit-title ${section.color}">${section.title}</div>
+                            ${section.subtitle ? `<div class="habit-subtitle">${section.subtitle}</div>` : ''}
+                        </div>
+                        <div class="habit-counter ${section.color} ${percent === 100 ? 'complete' : ''}">${checkedCount}/${section.items.length}</div>
+                    </div>
+                    <div class="habit-progress">
+                        <div class="habit-progress-fill ${section.color}" style="width: ${percent}%"></div>
+                    </div>
+                    <div class="habit-items">
+                        ${section.items.map(item => `
+                            <div class="habit-item ${dayChecks[item.id] ? 'checked' : ''} ${section.color}" onclick="toggleHabit('${item.id}')">
+                                <div class="checkbox">
+                                    <span class="checkbox-mark">✓</span>
+                                </div>
+                                <div class="habit-item-text">
+                                    <div class="habit-item-label">${item.label}</div>
+                                    <div class="habit-item-why">${item.why}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                container.appendChild(sectionEl);
+            });
+        }
+        
+        // Actions
+        function selectEnergy(level) {
+            todayEnergy = level;
+            energyLog[dateKey] = level;
+            saveToFirebase();
+            
+            document.getElementById('welcomeScreen').classList.add('hidden');
+            document.getElementById('mainScreen').classList.remove('hidden');
+            updateMainScreen();
+        }
+        
+        function showWelcomeScreen() {
+            document.getElementById('mainScreen').classList.add('hidden');
+            document.getElementById('welcomeScreen').classList.remove('hidden');
+            updateWelcomeScreen();
+        }
+        
+        function toggleHabit(itemId) {
+            if (!checkedItems[dateKey]) checkedItems[dateKey] = {};
+            checkedItems[dateKey][itemId] = !checkedItems[dateKey][itemId];
+            saveToFirebase();
+            updateMainScreen();
+        }
+        
+        // Init
+        async function init() {
+            await loadFromFirebase();
+            
+            document.getElementById('loadingScreen').classList.add('hidden');
+            
+            if (energyLog[dateKey]) {
+                todayEnergy = energyLog[dateKey];
+                document.getElementById('mainScreen').classList.remove('hidden');
+                updateMainScreen();
+            } else {
+                document.getElementById('welcomeScreen').classList.remove('hidden');
+                updateWelcomeScreen();
+            }
+        }
+        
+        // Listen for online/offline
+        window.addEventListener('online', () => {
+            isOnline = true;
+            saveToFirebase();
+        });
+        
+        window.addEventListener('offline', () => {
+            isOnline = false;
+            updateSyncStatus('offline');
+        });
+        
+        init();
+    </script>
+</body>
+</html>
