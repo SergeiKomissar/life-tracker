@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0f1a">
+    <title>Life Tracker AI</title>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(180deg, #0a0f1a 0%, #111827 50%, #0a0f1a 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+        
+        .container { max-width: 500px; margin: 0 auto; padding: 16px; padding-bottom: 100px; }
+        .hidden { display: none !important; }
+        
+        /* Sync */
+        .sync-status {
+            position: fixed; top: 10px; right: 10px;
+            padding: 6px 12px; border-radius: 20px; font-size: 11px; z-index: 1000;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .sync-status.synced { background: rgba(16,185,129,0.2); color: #10b981; }
+        .sync-status.syncing { background: rgba(251,191,36,0.2); color: #fbbf24; }
+        .sync-status.offline { background: rgba(239,68,68,0.2); color: #ef4444; }
+        
+        /* Settings button */
+        .settings-btn {
+            position: fixed; top: 10px; left: 10px;
+            padding: 6px 12px; border-radius: 20px; font-size: 11px; z-index: 1000;
+            background: rgba(255,255,255,0.1); color: #94a3b8;
+            border: none; cursor: pointer;
+        }
+        
+        /* Cards */
+        .card {
+            background: rgba(255,255,255,0.04);
+            border-radius: 16px; padding: 16px; margin-bottom: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .card-title { font-size: 14px; font-weight: 600; color: #94a3b8; margin-bottom: 12px; }
+        
+        /* Header */
+        .header { text-align: center; padding: 20px 0 24px; }
+        .header-date { font-size: 14px; color: #64748b; margin-bottom: 4px; }
+        .header-title { font-size: 24px; font-weight: 700; color: #fff; }
+        .header-subtitle { font-size: 14px; color: #64748b; margin-top: 8px; }
+        
+        /* Inputs */
+        .input-group { margin-bottom: 16px; }
+        .input-label { font-size: 13px; color: #94a3b8; margin-bottom: 6px; display: block; }
+        .input-row { display: flex; gap: 8px; align-items: center; }
+        .input-field {
+            flex: 1; background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px; padding: 14px 16px;
+            color: #fff; font-size: 16px; outline: none;
+        }
+        .input-field.center { text-align: center; font-size: 18px; font-weight: 600; }
+        .input-field:focus { border-color: #3b82f6; background: rgba(59,130,246,0.1); }
+        .input-field::placeholder { color: #64748b; font-weight: 400; }
+        .input-unit { font-size: 14px; color: #64748b; min-width: 50px; }
+        .input-separator { font-size: 24px; color: #64748b; }
+        .input-hint { font-size: 12px; color: #64748b; margin-top: 8px; }
+        
+        /* Toggle */
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .toggle-label { font-size: 14px; color: #e2e8f0; }
+        .toggle { width: 48px; height: 28px; background: rgba(255,255,255,0.15); border-radius: 14px; position: relative; cursor: pointer; }
+        .toggle.active { background: #3b82f6; }
+        .toggle::after { content: ''; position: absolute; width: 22px; height: 22px; background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: all 0.2s; }
+        .toggle.active::after { left: 23px; }
+        
+        /* Buttons */
+        .btn { width: 100%; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: #fff; }
+        .btn-secondary { background: rgba(255,255,255,0.08); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.15); }
+        .btn-danger { background: rgba(239,68,68,0.2); color: #f87171; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn + .btn { margin-top: 10px; }
+        
+        /* Day type badges */
+        .day-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+        .day-badge.strong { background: rgba(139,92,246,0.2); color: #a78bfa; }
+        .day-badge.normal { background: rgba(59,130,246,0.2); color: #60a5fa; }
+        .day-badge.recovery { background: rgba(100,116,139,0.2); color: #94a3b8; }
+        
+        /* Chat */
+        .chat-container {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            margin-top: 16px;
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.15));
+            padding: 14px 16px;
+            display: flex; align-items: center; gap: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        
+        .chat-avatar {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+        }
+        
+        .chat-info { flex: 1; }
+        .chat-name { font-size: 15px; font-weight: 600; color: #fff; }
+        .chat-status { font-size: 12px; color: #10b981; }
+        
+        .chat-messages {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        
+        .message {
+            margin-bottom: 16px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .message.user { flex-direction: row-reverse; }
+        
+        .message-avatar {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        
+        .message.ai .message-avatar {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        }
+        
+        .message.user .message-avatar {
+            background: rgba(255,255,255,0.15);
+        }
+        
+        .message-bubble {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .message.ai .message-bubble {
+            background: rgba(255,255,255,0.08);
+            border-bottom-left-radius: 4px;
+        }
+        
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-bottom-right-radius: 4px;
+        }
+        
+        .chat-input-container {
+            display: flex;
+            gap: 10px;
+            padding: 12px 16px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            background: rgba(0,0,0,0.2);
+        }
+        
+        .chat-input {
+            flex: 1;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 24px;
+            padding: 12px 18px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .chat-input:focus {
+            border-color: #3b82f6;
+        }
+        
+        .chat-input::placeholder { color: #64748b; }
+        
+        .chat-send {
+            width: 44px; height: 44px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        
+        .chat-send:disabled { opacity: 0.5; }
+        
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 8px 0;
+        }
+        
+        .typing-dot {
+            width: 8px; height: 8px;
+            background: #64748b;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+        
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+            30% { transform: translateY(-4px); opacity: 1; }
+        }
+        
+        /* Quick actions */
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 12px 16px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        
+        .quick-btn {
+            padding: 8px 14px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 20px;
+            color: #94a3b8;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .quick-btn:active { background: rgba(255,255,255,0.15); }
+        
+        /* Loading */
+        .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 16px; }
+        .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { font-size: 14px; color: #94a3b8; }
+        
+        /* Life counter */
+        .life-counter { background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.12)); border-radius: 16px; padding: 16px; margin-bottom: 16px; border: 1px solid rgba(99,102,241,0.2); }
+        .life-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; text-align: center; }
+        .life-stat-number { font-size: 20px; font-weight: 700; color: #fff; }
+        .life-stat-number.yellow { color: #fbbf24; }
+        .life-stat-number.green { color: #10b981; }
+        .life-stat-label { font-size: 11px; color: #64748b; margin-top: 2px; }
+        
+        /* Morning data */
+        .morning-data { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .morning-data:last-child { border-bottom: none; }
+        .morning-data-label { font-size: 14px; color: #94a3b8; }
+        .morning-data-value { font-size: 14px; font-weight: 600; color: #fff; }
+        .morning-data-value.good { color: #10b981; }
+        .morning-data-value.warning { color: #fbbf24; }
+        .morning-data-value.bad { color: #ef4444; }
+        
+        /* System status */
+        .system-status { display: flex; align-items: center; gap: 14px; border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+        .system-status.incomplete { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
+        .system-status.complete { background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.1)); border: 1px solid rgba(16,185,129,0.3); }
+        .system-icon { font-size: 32px; }
+        .system-info { flex: 1; }
+        .system-title { font-size: 16px; font-weight: 700; color: #e2e8f0; }
+        .system-status.complete .system-title { color: #10b981; }
+        .system-subtitle { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+        .streak-badge { background: rgba(251,146,60,0.2); padding: 6px 10px; border-radius: 12px; font-size: 12px; color: #fb923c; font-weight: 600; }
+        
+        /* Habits */
+        .habit-section { margin-bottom: 14px; border-radius: 16px; padding: 16px; background: rgba(255,255,255,0.03); }
+        .habit-section.inactive { opacity: 0.4; }
+        .habit-section.green { border: 1px solid rgba(16,185,129,0.4); }
+        .habit-section.blue { border: 1px solid rgba(59,130,246,0.4); }
+        .habit-section.purple { border: 1px solid rgba(139,92,246,0.4); }
+        .habit-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .habit-title { font-size: 15px; font-weight: 700; }
+        .habit-title.green { color: #10b981; }
+        .habit-title.blue { color: #3b82f6; }
+        .habit-title.purple { color: #8b5cf6; }
+        .habit-counter { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; }
+        .habit-counter.green { background: rgba(16,185,129,0.25); color: #10b981; }
+        .habit-counter.blue { background: rgba(59,130,246,0.25); color: #3b82f6; }
+        .habit-counter.purple { background: rgba(139,92,246,0.25); color: #8b5cf6; }
+        .habit-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; margin-bottom: 6px; cursor: pointer; background: rgba(255,255,255,0.02); }
+        .habit-item:active { transform: scale(0.98); }
+        .habit-item.checked.green { background: rgba(16,185,129,0.1); }
+        .habit-item.checked.blue { background: rgba(59,130,246,0.1); }
+        .habit-item.checked.purple { background: rgba(139,92,246,0.1); }
+        .checkbox { width: 24px; height: 24px; border-radius: 6px; border: 2px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; }
+        .habit-item.checked .checkbox { background: currentColor; border-color: currentColor; }
+        .habit-item.checked.green .checkbox { color: #10b981; }
+        .habit-item.checked.blue .checkbox { color: #3b82f6; }
+        .habit-item.checked.purple .checkbox { color: #8b5cf6; }
+        .checkbox-mark { color: #fff; font-size: 14px; display: none; }
+        .habit-item.checked .checkbox-mark { display: block; }
+        .habit-item-label { flex: 1; font-size: 14px; color: #e2e8f0; }
+        .habit-item.checked .habit-item-label { text-decoration: line-through; opacity: 0.7; }
+        
+        /* Bottom nav */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(10,15,26,0.95); backdrop-filter: blur(10px); border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-around; padding: 12px 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #64748b; cursor: pointer; padding: 8px 16px; border-radius: 12px; }
+        .nav-item.active { color: #3b82f6; background: rgba(59,130,246,0.1); }
+        .nav-item-icon { font-size: 20px; }
+        .nav-item-label { font-size: 11px; }
+        
+        /* Reminders */
+        .reminders { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+        .reminders-title { font-size: 14px; font-weight: 600; color: #f87171; margin-bottom: 10px; }
+        .reminder-item { display: flex; gap: 8px; font-size: 13px; color: #e2e8f0; padding: 4px 0; }
+        
+        /* Key status */
+        .key-status { display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; margin-bottom: 16px; }
+        .key-status.valid { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); }
+        .key-status.invalid { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); }
+        .key-status-icon { font-size: 20px; }
+        .key-status-text { font-size: 14px; }
+        .key-status.valid .key-status-text { color: #10b981; }
+        .key-status.invalid .key-status-text { color: #f87171; }
+    </style>
+</head>
+<body>
+    <button class="settings-btn" id="settingsBtn" onclick="showSettings()">⚙️ API</button>
+    
+    <div class="sync-status synced" id="syncStatus">
+        <span id="syncIcon">☁️</span>
+        <span id="syncText">Синхронизировано</span>
+    </div>
+
+    <div class="container">
+        <!-- Loading -->
+        <div id="loadingScreen" class="loading">
+            <div class="spinner"></div>
+            <div class="loading-text">Загрузка...</div>
+        </div>
+        
+        <!-- Setup Screen -->
+        <div id="setupScreen" class="hidden">
+            <div class="header">
+                <div class="header-title">🔐 Настройка AI</div>
+                <div class="header-subtitle">Введи API ключ OpenRouter</div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">API Ключ</div>
+                <div class="input-group">
+                    <input type="password" class="input-field" id="apiKeyInput" placeholder="sk-or-v1-...">
+                    <div class="input-hint">Ключ хранится только на твоём устройстве</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">Как получить?</div>
+                <div style="font-size: 14px; color: #94a3b8; line-height: 1.6;">
+                    1. Зайди на <a href="https://openrouter.ai" target="_blank" style="color: #60a5fa;">openrouter.ai</a><br>
+                    2. Создай аккаунт<br>
+                    3. Keys → Create Key<br>
+                    4. Скопируй ключ
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" onclick="saveApiKey()">Сохранить</button>
+            <button class="btn btn-secondary" onclick="skipApiKey()">Без AI</button>
+        </div>
+        
+        <!-- Settings Screen -->
+        <div id="settingsScreen" class="hidden">
+            <div class="header">
+                <div class="header-title">⚙️ Настройки</div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">API Ключ OpenRouter</div>
+                <div class="key-status" id="keyStatus">
+                    <span class="key-status-icon" id="keyStatusIcon">✅</span>
+                    <span class="key-status-text" id="keyStatusText">Ключ установлен</span>
+                </div>
+                <div class="input-group">
+                    <input type="password" class="input-field" id="apiKeyEdit" placeholder="sk-or-v1-...">
+                </div>
+                <button class="btn btn-secondary" onclick="updateApiKey()">Обновить</button>
+                <button class="btn btn-danger" onclick="deleteApiKey()">Удалить</button>
+            </div>
+            
+            <button class="btn btn-primary" onclick="closeSettings()" style="margin-top: 20px;">← Назад</button>
+        </div>
+        
+        <!-- Morning Check-in -->
+        <div id="morningScreen" class="hidden">
+            <div class="header">
+                <div class="header-date" id="morningDate"></div>
+                <div class="header-title">🌅 Утренний чек-ин</div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">💍 Oura Readiness</div>
+                <div class="input-group">
+                    <div class="input-row">
+                        <input type="number" class="input-field center" id="ouraReadiness" placeholder="78" min="0" max="100">
+                        <span class="input-unit">из 100</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">💓 Давление и пульс</div>
+                <div class="input-group">
+                    <label class="input-label">АД</label>
+                    <div class="input-row">
+                        <input type="number" class="input-field center" id="bpSystolic" placeholder="125" min="80" max="200">
+                        <span class="input-separator">/</span>
+                        <input type="number" class="input-field center" id="bpDiastolic" placeholder="82" min="50" max="130">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Пульс</label>
+                    <div class="input-row">
+                        <input type="number" class="input-field center" id="pulse" placeholder="65" min="40" max="150">
+                        <span class="input-unit">уд/мин</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="toggle-row" onclick="toggleEliteHRV()">
+                    <span class="toggle-label">📊 EliteHRV</span>
+                    <div class="toggle" id="eliteToggle"></div>
+                </div>
+                <div id="eliteFields" class="hidden" style="margin-top: 12px;">
+                    <div class="input-group">
+                        <div class="input-row">
+                            <input type="number" class="input-field center" id="eliteScore" placeholder="7" min="1" max="10">
+                            <span class="input-unit">из 10</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" id="analyzeBtn" onclick="analyzeMorning()">
+                🤖 Получить анализ AI
+            </button>
+            
+            <!-- AI Chat -->
+            <div id="chatContainer" class="chat-container hidden">
+                <div class="chat-header">
+                    <div class="chat-avatar">🤖</div>
+                    <div class="chat-info">
+                        <div class="chat-name">AI-ассистент</div>
+                        <div class="chat-status" id="chatStatus">онлайн</div>
+                    </div>
+                    <div id="dayBadge" class="day-badge normal">⚡</div>
+                </div>
+                
+                <div class="chat-messages" id="chatMessages"></div>
+                
+                <div class="quick-actions" id="quickActions">
+                    <button class="quick-btn" onclick="askQuestion('Что поесть на завтрак?')">🍳 Завтрак</button>
+                    <button class="quick-btn" onclick="askQuestion('Можно ли мне кофе?')">☕ Кофе</button>
+                    <button class="quick-btn" onclick="askQuestion('Какую тренировку делать?')">🏋️ Тренировка</button>
+                    <button class="quick-btn" onclick="askQuestion('Как снизить давление?')">💓 Давление</button>
+                </div>
+                
+                <div class="chat-input-container">
+                    <input type="text" class="chat-input" id="chatInput" placeholder="Задай вопрос..." onkeypress="handleChatKeypress(event)">
+                    <button class="chat-send" id="chatSend" onclick="sendChatMessage()">➤</button>
+                </div>
+            </div>
+            
+            <button class="btn btn-primary hidden" id="startDayBtn" onclick="startDay()" style="margin-top: 16px;">
+                Начать день →
+            </button>
+        </div>
+        
+        <!-- Main Screen -->
+        <div id="mainScreen" class="hidden">
+            <div class="header">
+                <div class="header-date" id="mainDate"></div>
+                <div style="display: flex; align-items: center; justify-content: center; gap: 12px;">
+                    <span class="header-title">Life Tracker</span>
+                    <div id="mainBadge" class="day-badge normal">⚡</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">🌅 Утренние показатели</div>
+                <div class="morning-data">
+                    <span class="morning-data-label">Oura Readiness</span>
+                    <span class="morning-data-value" id="sumOura">—</span>
+                </div>
+                <div class="morning-data">
+                    <span class="morning-data-label">Давление</span>
+                    <span class="morning-data-value" id="sumBP">—</span>
+                </div>
+                <div class="morning-data">
+                    <span class="morning-data-label">Пульс</span>
+                    <span class="morning-data-value" id="sumPulse">—</span>
+                </div>
+            </div>
+            
+            <div class="life-counter">
+                <div class="life-stats">
+                    <div>
+                        <div class="life-stat-number" id="daysLived">17 804</div>
+                        <div class="life-stat-label">прожито</div>
+                    </div>
+                    <div>
+                        <div class="life-stat-number yellow" id="daysToPension">5 937</div>
+                        <div class="life-stat-label">до пенсии</div>
+                    </div>
+                    <div>
+                        <div class="life-stat-number green" id="daysToGoal">15 068</div>
+                        <div class="life-stat-label">до 90 лет</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="system-status" id="systemStatus">
+                <div class="system-icon" id="systemIcon">🔄</div>
+                <div class="system-info">
+                    <div class="system-title" id="systemTitle">Выполни минимум</div>
+                    <div class="system-subtitle" id="systemSubtitle">Осталось: 3 из 3</div>
+                </div>
+                <div class="streak-badge" id="streakBadge">🔥 0</div>
+            </div>
+            
+            <div id="habitsContainer"></div>
+            
+            <div class="reminders">
+                <div class="reminders-title">⚠️ Помни</div>
+                <div class="reminder-item"><span>🩸</span><span>Без добавок с железом</span></div>
+                <div class="reminder-item"><span>☕</span><span>Кофеин ≤150 мг, до 14:00</span></div>
+                <div class="reminder-item"><span>🧂</span><span>Соль ≤5 г</span></div>
+            </div>
+            
+            <!-- Chat on main screen -->
+            <div class="chat-container" id="mainChatContainer">
+                <div class="chat-header" onclick="toggleMainChat()">
+                    <div class="chat-avatar">🤖</div>
+                    <div class="chat-info">
+                        <div class="chat-name">Спросить AI</div>
+                        <div class="chat-status">задай вопрос</div>
+                    </div>
+                    <span id="chatToggleIcon">▼</span>
+                </div>
+                
+                <div id="mainChatBody" class="hidden">
+                    <div class="chat-messages" id="mainChatMessages"></div>
+                    
+                    <div class="quick-actions">
+                        <button class="quick-btn" onclick="askMainQuestion('Как прошёл мой день?')">📊 Анализ дня</button>
+                        <button class="quick-btn" onclick="askMainQuestion('Что поесть на ужин?')">🍽️ Ужин</button>
+                        <button class="quick-btn" onclick="askMainQuestion('Как улучшить сон?')">😴 Сон</button>
+                    </div>
+                    
+                    <div class="chat-input-container">
+                        <input type="text" class="chat-input" id="mainChatInput" placeholder="Задай вопрос..." onkeypress="handleMainChatKeypress(event)">
+                        <button class="chat-send" onclick="sendMainChatMessage()">➤</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bottom-nav hidden" id="bottomNav">
+        <div class="nav-item active"><span class="nav-item-icon">🏠</span><span class="nav-item-label">Главная</span></div>
+        <div class="nav-item" onclick="alert('В разработке')"><span class="nav-item-icon">🍽️</span><span class="nav-item-label">Питание</span></div>
+        <div class="nav-item" onclick="alert('В разработке')"><span class="nav-item-icon">📈</span><span class="nav-item-label">Тренды</span></div>
+        <div class="nav-item" onclick="alert('В разработке')"><span class="nav-item-icon">🌙</span><span class="nav-item-label">Вечер</span></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, get } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyCq10f_AzUXLjsfWEQNRbTUGjBLy-u4hnI",
+            authDomain: "life-tracker-54732.firebaseapp.com",
+            databaseURL: "https://life-tracker-54732-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "life-tracker-54732",
+            storageBucket: "life-tracker-54732.firebasestorage.app",
+            messagingSenderId: "322679590707",
+            appId: "1:322679590707:web:dee9c025719d986e987846"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const userRef = ref(database, 'users/sergey');
+        
+        // === CONFIG ===
+        let API_KEY = localStorage.getItem('openrouter_api_key') || '';
+        const AI_MODEL = 'anthropic/claude-3-haiku'; // Правильное название
+        
+        const BIRTH_DATE = new Date(1977, 3, 29);
+        const PENSION_AGE = 65;
+        const LIFE_GOAL = 90;
+        
+        const today = new Date();
+        const dateKey = today.toISOString().split('T')[0];
+        
+        let userData = { days: {}, stats: {} };
+        let todayData = null;
+        let showElite = false;
+        let chatHistory = [];
+        let mainChatHistory = [];
+        let morningData = null;
+        
+        // === AI PERSONALITY ===
+        const AI_SYSTEM = `Ты — персональный AI-ассистент по здоровью и долголетию. 
+
+ТВОЙ СТИЛЬ:
+• Дружелюбный и заботливый
+• Говоришь просто, по-человечески
+• Поддерживаешь, но честен если что-то не так
+• Используешь эмодзи умеренно
+• Помнишь контекст разговора
+
+О ПОЛЬЗОВАТЕЛЕ (Сергей):
+• 48 лет, цель — активно прожить до 90
+• Гипертония I ст., метаболический синдром
+• Принимает: Амлодипин, Эспиро 5мг
+• Ферритин ~350 — НЕЛЬЗЯ железо в добавках!
+• Генетика: FTO (легко набирает вес), медленный метаболизм кофеина
+• Тренируется: силовые + гребля Concept2
+• Питание: 2000-2100 ккал, белок 200г, жиры 60-70г, углеводы 130-140г
+
+ВАЖНЫЕ ПОРОГИ:
+• АД ≥130 — повышено (его личный порог)
+• Кофеин: max 150 мг, только до 14:00
+• Соль: max 5г/день
+
+ТИПЫ ДНЯ:
+🚀 Сильный: Oura ≥85 + АД <125/80
+⚡ Нормальный: Oura 70-84 + АД <130/85
+😴 Восстановительный: Oura <70 или АД ≥140/90
+
+ФОРМАТ ОТВЕТА НА УТРЕННИЙ ЧЕК-ИН:
+1. Тип дня (эмодзи + название)
+2. Краткая оценка показателей (что хорошо, что настораживает)
+3. 3 конкретные рекомендации на день
+4. Мотивирующее завершение
+
+Отвечай тепло, конкретно и полезно.`;
+
+        const habits = {
+            minimum: { title: "🎯 МИНИМУМ", color: "green", items: [
+                { id: 'steps_min', label: '4000 шагов' },
+                { id: 'protein_meal', label: 'Белок ≥40г + овощи' },
+                { id: 'breathing', label: '5 мин дыхания' }
+            ]},
+            normal: { title: "⚡ НОРМАЛЬНЫЙ", color: "blue", items: [
+                { id: 'steps_full', label: '7000–10000 шагов' },
+                { id: 'training', label: 'Тренировка' },
+                { id: 'nutrition_track', label: 'Трекинг питания' },
+                { id: 'breathing_2x', label: '2 сессии дыхания' },
+                { id: 'sleep_time', label: 'Лечь до 23:30' }
+            ]},
+            strong: { title: "🚀 СИЛЬНЫЙ", color: "purple", items: [
+                { id: 'extra_training', label: 'Удлинённая тренировка' },
+                { id: 'full_tracking', label: 'Полный трекинг' }
+            ]}
+        };
+
+        // === UTILITY ===
+        function formatDate(d) { return d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' }); }
+        function formatNum(n) { return n.toLocaleString('ru-RU'); }
+        
+        function calcDates() {
+            const now = new Date(); now.setHours(0,0,0,0);
+            const pension = new Date(BIRTH_DATE); pension.setFullYear(pension.getFullYear() + PENSION_AGE);
+            const goal = new Date(BIRTH_DATE); goal.setFullYear(goal.getFullYear() + LIFE_GOAL);
+            const ms = 24*60*60*1000;
+            return {
+                lived: Math.floor((now - BIRTH_DATE) / ms),
+                toPension: Math.max(0, Math.floor((pension - now) / ms)),
+                toGoal: Math.max(0, Math.floor((goal - now) / ms))
+            };
+        }
+        
+        function updateSync(s) {
+            document.getElementById('syncStatus').className = 'sync-status ' + s;
+            document.getElementById('syncIcon').textContent = s === 'synced' ? '☁️' : s === 'syncing' ? '🔄' : '📴';
+            document.getElementById('syncText').textContent = s === 'synced' ? 'Синхронизировано' : s === 'syncing' ? 'Сохранение...' : 'Офлайн';
+        }
+        
+        function hideAllScreens() {
+            ['loadingScreen', 'setupScreen', 'settingsScreen', 'morningScreen', 'mainScreen'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+        }
+        
+        function showScreen(name) {
+            hideAllScreens();
+            document.getElementById(name + 'Screen').classList.remove('hidden');
+            document.getElementById('bottomNav').classList.toggle('hidden', name !== 'main');
+            document.getElementById('settingsBtn').classList.toggle('hidden', ['setup', 'settings', 'loading'].includes(name));
+        }
+        
+        // === API KEY ===
+        window.saveApiKey = function() {
+            const key = document.getElementById('apiKeyInput').value.trim();
+            if (!key || !key.startsWith('sk-or-')) {
+                alert('Введи корректный ключ (начинается с sk-or-)');
+                return;
+            }
+            API_KEY = key;
+            localStorage.setItem('openrouter_api_key', key);
+            proceedAfterSetup();
+        };
+        
+        window.skipApiKey = function() { API_KEY = ''; proceedAfterSetup(); };
+        
+        window.showSettings = function() {
+            showScreen('settings');
+            updateKeyStatus();
+        };
+        
+        window.closeSettings = function() {
+            todayData?.morning ? (showScreen('main'), updateMain()) : showScreen('morning');
+        };
+        
+        window.updateApiKey = function() {
+            const key = document.getElementById('apiKeyEdit').value.trim();
+            if (!key || key.includes('••••') || !key.startsWith('sk-or-')) {
+                alert('Введи новый корректный ключ');
+                return;
+            }
+            API_KEY = key;
+            localStorage.setItem('openrouter_api_key', key);
+            alert('Ключ обновлён!');
+            updateKeyStatus();
+        };
+        
+        window.deleteApiKey = function() {
+            if (confirm('Удалить ключ?')) {
+                API_KEY = '';
+                localStorage.removeItem('openrouter_api_key');
+                updateKeyStatus();
+                document.getElementById('apiKeyEdit').value = '';
+            }
+        };
+        
+        function updateKeyStatus() {
+            const valid = !!API_KEY;
+            document.getElementById('keyStatus').className = 'key-status ' + (valid ? 'valid' : 'invalid');
+            document.getElementById('keyStatusIcon').textContent = valid ? '✅' : '❌';
+            document.getElementById('keyStatusText').textContent = valid ? 'Ключ установлен' : 'Ключ не установлен';
+            document.getElementById('apiKeyEdit').value = valid ? '••••••••' + API_KEY.slice(-8) : '';
+        }
+        
+        function proceedAfterSetup() {
+            todayData?.morning ? (showScreen('main'), updateMain()) : showScreen('morning');
+        }
+        
+        // === FIREBASE ===
+        async function saveData() {
+            updateSync('syncing');
+            try {
+                await set(userRef, userData);
+                updateSync('synced');
+                localStorage.setItem('ltBackup', JSON.stringify(userData));
+            } catch(e) { 
+                updateSync('offline'); 
+                localStorage.setItem('ltBackup', JSON.stringify(userData)); 
+            }
+        }
+        
+        async function loadData() {
+            try {
+                const snap = await get(userRef);
+                if (snap.val()) userData = snap.val();
+                updateSync('synced');
+            } catch(e) {
+                const b = localStorage.getItem('ltBackup');
+                if (b) userData = JSON.parse(b);
+                updateSync('offline');
+            }
+            if (!userData.days) userData.days = {};
+            if (!userData.stats) userData.stats = {};
+            todayData = userData.days[dateKey] || null;
+        }
+        
+        // === AI CHAT ===
+        async function callAI(messages) {
+            if (!API_KEY) return 'AI недоступен. Добавь ключ в настройках ⚙️';
+            
+            const statusEl = document.getElementById('chatStatus');
+            if (statusEl) statusEl.textContent = 'печатает...';
+            
+            try {
+                const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}`,
+                        'HTTP-Referer': location.origin,
+                        'X-Title': 'Life Tracker AI'
+                    },
+                    body: JSON.stringify({
+                        model: AI_MODEL,
+                        messages: [{ role: 'system', content: AI_SYSTEM }, ...messages],
+                        max_tokens: 600,
+                        temperature: 0.7
+                    })
+                });
+                const data = await res.json();
+                if (statusEl) statusEl.textContent = 'онлайн';
+                
+                if (data.error) return 'Ошибка: ' + (data.error.message || 'Проверь ключ');
+                return data.choices[0].message.content;
+            } catch(e) { 
+                if (statusEl) statusEl.textContent = 'офлайн';
+                return 'Ошибка сети. Проверь интернет.'; 
+            }
+        }
+        
+        function addMessage(container, role, text) {
+            const div = document.createElement('div');
+            div.className = 'message ' + role;
+            div.innerHTML = `
+                <div class="message-avatar">${role === 'ai' ? '🤖' : '👤'}</div>
+                <div class="message-bubble">${text.replace(/\n/g, '<br>')}</div>
+            `;
+            document.getElementById(container).appendChild(div);
+            document.getElementById(container).scrollTop = document.getElementById(container).scrollHeight;
+        }
+        
+        function addTypingIndicator(container) {
+            const div = document.createElement('div');
+            div.className = 'message ai';
+            div.id = 'typingIndicator';
+            div.innerHTML = `
+                <div class="message-avatar">🤖</div>
+                <div class="message-bubble">
+                    <div class="typing-indicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
+            `;
+            document.getElementById(container).appendChild(div);
+            document.getElementById(container).scrollTop = document.getElementById(container).scrollHeight;
+        }
+        
+        function removeTypingIndicator() {
+            const el = document.getElementById('typingIndicator');
+            if (el) el.remove();
+        }
+        
+        // === MORNING ANALYSIS ===
+        window.toggleEliteHRV = function() {
+            showElite = !showElite;
+            document.getElementById('eliteToggle').classList.toggle('active', showElite);
+            document.getElementById('eliteFields').classList.toggle('hidden', !showElite);
+        };
+        
+        window.analyzeMorning = async function() {
+            const oura = parseInt(document.getElementById('ouraReadiness').value);
+            const sys = parseInt(document.getElementById('bpSystolic').value);
+            const dia = parseInt(document.getElementById('bpDiastolic').value);
+            const pulse = parseInt(document.getElementById('pulse').value);
+            
+            if (!oura || !sys || !dia || !pulse) { alert('Заполни все поля'); return; }
+            
+            const elite = showElite ? parseInt(document.getElementById('eliteScore').value) || null : null;
+            
+            morningData = { oura, sys, dia, pulse, elite };
+            
+            document.getElementById('analyzeBtn').classList.add('hidden');
+            document.getElementById('chatContainer').classList.remove('hidden');
+            
+            // Сразу показываем индикатор загрузки (без сообщения пользователя)
+            addTypingIndicator('chatMessages');
+            
+            const dayOfWeek = today.toLocaleDateString('ru-RU', { weekday: 'long' });
+            
+            // Формируем запрос для AI (не показываем пользователю)
+            let aiRequest = `Сегодня ${dayOfWeek}. Проанализируй утренние показатели и выдай рекомендации.
+
+ПОКАЗАТЕЛИ:
+• Oura Readiness: ${oura}/100
+• Давление: ${sys}/${dia} мм рт.ст.
+• Пульс: ${pulse} уд/мин`;
+            if (elite) aiRequest += `\n• EliteHRV: ${elite}/10`;
+            
+            aiRequest += `
+
+Определи тип дня и дай анализ в формате:
+1. Тип дня (🚀/⚡/😴 + название)
+2. Оценка показателей
+3. 3 рекомендации на сегодня
+4. Короткое мотивирующее завершение`;
+            
+            chatHistory = [{ role: 'user', content: aiRequest }];
+            
+            const response = await callAI(chatHistory);
+            removeTypingIndicator();
+            
+            chatHistory.push({ role: 'assistant', content: response });
+            addMessage('chatMessages', 'ai', response);
+            
+            // Determine day type
+            let dayType = 'normal';
+            if (response.includes('Сильный') || response.includes('сильный') || response.includes('🚀')) dayType = 'strong';
+            else if (response.includes('Восстановительный') || response.includes('восстановительн') || response.includes('😴') || response.includes('отдых')) dayType = 'recovery';
+            else if (oura >= 85 && sys < 125) dayType = 'strong';
+            else if (oura < 70 || sys >= 140) dayType = 'recovery';
+            
+            const badge = document.getElementById('dayBadge');
+            badge.className = 'day-badge ' + dayType;
+            badge.innerHTML = dayType === 'strong' ? '🚀 Сильный' : dayType === 'normal' ? '⚡ Нормальный' : '😴 Восстановление';
+            
+            // Save
+            if (!userData.days[dateKey]) userData.days[dateKey] = { habits: {} };
+            userData.days[dateKey].morning = {
+                ts: new Date().toISOString(), oura, bp_sys: sys, bp_dia: dia, pulse, elite, day_type: dayType, ai: response
+            };
+            todayData = userData.days[dateKey];
+            await saveData();
+            
+            document.getElementById('startDayBtn').classList.remove('hidden');
+        };
+        
+        window.askQuestion = async function(q) {
+            chatHistory.push({ role: 'user', content: q });
+            addMessage('chatMessages', 'user', q);
+            addTypingIndicator('chatMessages');
+            
+            const response = await callAI(chatHistory);
+            removeTypingIndicator();
+            
+            chatHistory.push({ role: 'assistant', content: response });
+            addMessage('chatMessages', 'ai', response);
+        };
+        
+        window.sendChatMessage = async function() {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            
+            input.value = '';
+            await askQuestion(msg);
+        };
+        
+        window.handleChatKeypress = function(e) {
+            if (e.key === 'Enter') sendChatMessage();
+        };
+        
+        window.startDay = function() {
+            showScreen('main');
+            updateMain();
+        };
+        
+        // === MAIN SCREEN ===
+        function updateMain() {
+            document.getElementById('mainDate').textContent = formatDate(today);
+            
+            const dt = todayData?.morning?.day_type || 'normal';
+            const mb = document.getElementById('mainBadge');
+            mb.className = 'day-badge ' + dt;
+            mb.innerHTML = dt === 'strong' ? '🚀' : dt === 'normal' ? '⚡' : '😴';
+            
+            if (todayData?.morning) {
+                const m = todayData.morning;
+                document.getElementById('sumOura').textContent = m.oura;
+                document.getElementById('sumOura').className = 'morning-data-value ' + (m.oura >= 85 ? 'good' : m.oura >= 70 ? '' : 'warning');
+                document.getElementById('sumBP').textContent = `${m.bp_sys}/${m.bp_dia}`;
+                document.getElementById('sumBP').className = 'morning-data-value ' + (m.bp_sys < 130 ? 'good' : m.bp_sys < 140 ? 'warning' : 'bad');
+                document.getElementById('sumPulse').textContent = `${m.pulse} уд/мин`;
+            }
+            
+            const d = calcDates();
+            document.getElementById('daysLived').textContent = formatNum(d.lived);
+            document.getElementById('daysToPension').textContent = formatNum(d.toPension);
+            document.getElementById('daysToGoal').textContent = formatNum(d.toGoal);
+            
+            updateStatus();
+            renderHabits();
+            
+            // Initialize main chat with context
+            if (mainChatHistory.length === 0 && todayData?.morning) {
+                const m = todayData.morning;
+                mainChatHistory = [{
+                    role: 'system',
+                    content: `Контекст дня: ${m.day_type === 'strong' ? 'сильный' : m.day_type === 'normal' ? 'нормальный' : 'восстановительный'} день. Oura: ${m.oura}, АД: ${m.bp_sys}/${m.bp_dia}, пульс: ${m.pulse}.`
+                }];
+            }
+        }
+        
+        function updateStatus() {
+            const min = ['steps_min', 'protein_meal', 'breathing'];
+            const ch = todayData?.habits || {};
+            const done = min.filter(id => ch[id]).length;
+            const complete = done === min.length;
+            
+            const st = document.getElementById('systemStatus');
+            st.className = 'system-status ' + (complete ? 'complete' : 'incomplete');
+            document.getElementById('systemIcon').textContent = complete ? '✅' : '🔄';
+            document.getElementById('systemTitle').textContent = complete ? 'Ты в системе!' : 'Выполни минимум';
+            document.getElementById('systemSubtitle').textContent = complete ? `День засчитан!` : `Осталось: ${min.length - done} из 3`;
+            document.getElementById('streakBadge').textContent = '🔥 ' + (userData.stats.current_streak || 0);
+        }
+        
+        function renderHabits() {
+            const c = document.getElementById('habitsContainer');
+            c.innerHTML = '';
+            const dt = todayData?.morning?.day_type || 'normal';
+            const ch = todayData?.habits || {};
+            
+            Object.entries(habits).forEach(([key, sec]) => {
+                const active = key === 'minimum' || (key === 'normal' && dt !== 'recovery') || (key === 'strong' && dt === 'strong');
+                const cnt = sec.items.filter(i => ch[i.id]).length;
+                
+                const div = document.createElement('div');
+                div.className = `habit-section ${sec.color} ${active ? '' : 'inactive'}`;
+                div.innerHTML = `
+                    <div class="habit-header">
+                        <span class="habit-title ${sec.color}">${sec.title}</span>
+                        <span class="habit-counter ${sec.color}">${cnt}/${sec.items.length}</span>
+                    </div>
+                    ${sec.items.map(i => `
+                        <div class="habit-item ${ch[i.id] ? 'checked' : ''} ${sec.color}" data-id="${i.id}">
+                            <div class="checkbox"><span class="checkbox-mark">✓</span></div>
+                            <span class="habit-item-label">${i.label}</span>
+                        </div>
+                    `).join('')}
+                `;
+                c.appendChild(div);
+            });
+            
+            c.querySelectorAll('.habit-item').forEach(el => {
+                el.addEventListener('click', () => toggleHabit(el.dataset.id));
+            });
+        }
+        
+        async function toggleHabit(id) {
+            if (!todayData) todayData = { habits: {} };
+            if (!todayData.habits) todayData.habits = {};
+            todayData.habits[id] = !todayData.habits[id];
+            userData.days[dateKey] = todayData;
+            await saveData();
+            updateStatus();
+            renderHabits();
+        }
+        
+        // === MAIN CHAT ===
+        window.toggleMainChat = function() {
+            const body = document.getElementById('mainChatBody');
+            const icon = document.getElementById('chatToggleIcon');
+            body.classList.toggle('hidden');
+            icon.textContent = body.classList.contains('hidden') ? '▼' : '▲';
+        };
+        
+        window.askMainQuestion = async function(q) {
+            document.getElementById('mainChatBody').classList.remove('hidden');
+            document.getElementById('chatToggleIcon').textContent = '▲';
+            
+            mainChatHistory.push({ role: 'user', content: q });
+            addMessage('mainChatMessages', 'user', q);
+            addTypingIndicator('mainChatMessages');
+            
+            const response = await callAI(mainChatHistory);
+            removeTypingIndicator();
+            
+            mainChatHistory.push({ role: 'assistant', content: response });
+            addMessage('mainChatMessages', 'ai', response);
+        };
+        
+        window.sendMainChatMessage = async function() {
+            const input = document.getElementById('mainChatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            input.value = '';
+            await askMainQuestion(msg);
+        };
+        
+        window.handleMainChatKeypress = function(e) {
+            if (e.key === 'Enter') sendMainChatMessage();
+        };
+        
+        // === INIT ===
+        async function init() {
+            await loadData();
+            document.getElementById('morningDate').textContent = formatDate(today);
+            
+            if (!API_KEY) { showScreen('setup'); return; }
+            todayData?.morning ? (showScreen('main'), updateMain()) : showScreen('morning');
+        }
+        
+        setTimeout(init, 500);
+    </script>
+</body>
+</html>
