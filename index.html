@@ -1,0 +1,3107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0f1a">
+    <meta name="apple-mobile-web-app-title" content="Life Tracker">
+    <title>Life Tracker AI</title>
+    
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(180deg, #0a0f1a 0%, #111827 50%, #0a0f1a 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+        
+        .container { max-width: 500px; margin: 0 auto; padding: 16px; padding-bottom: 100px; }
+        .hidden { display: none !important; }
+        
+        /* Sync */
+        .sync-status {
+            position: fixed; top: 10px; right: 10px;
+            padding: 6px 12px; border-radius: 20px; font-size: 11px; z-index: 1000;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .sync-status.synced { background: rgba(16,185,129,0.2); color: #10b981; }
+        .sync-status.syncing { background: rgba(251,191,36,0.2); color: #fbbf24; }
+        .sync-status.offline { background: rgba(239,68,68,0.2); color: #ef4444; }
+        
+        .settings-btn {
+            position: fixed; top: 10px; left: 10px;
+            padding: 6px 12px; border-radius: 20px; font-size: 11px; z-index: 1000;
+            background: rgba(255,255,255,0.1); color: #94a3b8;
+            border: none; cursor: pointer;
+        }
+        
+        /* Cards */
+        .card {
+            background: rgba(255,255,255,0.04);
+            border-radius: 16px; padding: 16px; margin-bottom: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .card-title { font-size: 14px; font-weight: 600; color: #94a3b8; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        
+        /* Header */
+        .header { text-align: center; padding: 20px 0 24px; }
+        .header-date { font-size: 14px; color: #64748b; margin-bottom: 4px; }
+        .header-title { font-size: 24px; font-weight: 700; color: #fff; }
+        .header-subtitle { font-size: 14px; color: #64748b; margin-top: 8px; }
+        
+        /* Inputs */
+        .input-group { margin-bottom: 16px; }
+        .input-label { font-size: 13px; color: #94a3b8; margin-bottom: 6px; display: block; }
+        .input-row { display: flex; gap: 8px; align-items: center; }
+        .input-field {
+            flex: 1; background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px; padding: 14px 16px;
+            color: #fff; font-size: 16px; outline: none;
+        }
+        .input-field.center { text-align: center; font-size: 18px; font-weight: 600; }
+        .input-field:focus { border-color: #3b82f6; background: rgba(59,130,246,0.1); }
+        .input-field::placeholder { color: #64748b; font-weight: 400; }
+        .input-unit { font-size: 14px; color: #64748b; min-width: 50px; }
+        .input-separator { font-size: 24px; color: #64748b; }
+        .input-hint { font-size: 12px; color: #64748b; margin-top: 8px; }
+        
+        /* Toggle */
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .toggle-label { font-size: 14px; color: #e2e8f0; }
+        .toggle { width: 48px; height: 28px; background: rgba(255,255,255,0.15); border-radius: 14px; position: relative; cursor: pointer; }
+        .toggle.active { background: #3b82f6; }
+        .toggle::after { content: ''; position: absolute; width: 22px; height: 22px; background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: all 0.2s; }
+        .toggle.active::after { left: 23px; }
+        
+        /* Buttons */
+        .btn { width: 100%; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: #fff; }
+        .btn-secondary { background: rgba(255,255,255,0.08); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.15); }
+        .btn-danger { background: rgba(239,68,68,0.2); color: #f87171; }
+        .btn-small { width: auto; padding: 10px 16px; font-size: 14px; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn + .btn { margin-top: 10px; }
+        
+        /* Day badges */
+        .day-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+        .day-badge.strong { background: rgba(139,92,246,0.2); color: #a78bfa; }
+        .day-badge.normal { background: rgba(59,130,246,0.2); color: #60a5fa; }
+        .day-badge.recovery { background: rgba(100,116,139,0.2); color: #94a3b8; }
+        
+        /* Chat */
+        .chat-container { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; margin-top: 16px; overflow: hidden; }
+        .chat-header { background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.15)); padding: 14px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .chat-avatar { width: 40px; height: 40px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .chat-info { flex: 1; }
+        .chat-name { font-size: 15px; font-weight: 600; color: #fff; }
+        .chat-status { font-size: 12px; color: #10b981; }
+        .chat-messages { max-height: 400px; overflow-y: auto; padding: 16px; }
+        .message { margin-bottom: 16px; display: flex; gap: 10px; }
+        .message.user { flex-direction: row-reverse; }
+        .message-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+        .message.ai .message-avatar { background: linear-gradient(135deg, #3b82f6, #8b5cf6); }
+        .message.user .message-avatar { background: rgba(255,255,255,0.15); }
+        .message-bubble { max-width: 85%; padding: 12px 16px; border-radius: 18px; font-size: 14px; line-height: 1.5; }
+        .message.ai .message-bubble { background: rgba(255,255,255,0.08); border-bottom-left-radius: 4px; }
+        .message.user .message-bubble { background: linear-gradient(135deg, #3b82f6, #8b5cf6); border-bottom-right-radius: 4px; }
+        .chat-input-container { display: flex; gap: 10px; padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2); }
+        .chat-input { flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 24px; padding: 12px 18px; color: #fff; font-size: 14px; outline: none; }
+        .chat-input:focus { border-color: #3b82f6; }
+        .chat-input::placeholder { color: #64748b; }
+        .chat-send { width: 44px; height: 44px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: none; border-radius: 50%; color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .chat-send:disabled { opacity: 0.5; }
+        .typing-indicator { display: flex; gap: 4px; padding: 8px 0; }
+        .typing-dot { width: 8px; height: 8px; background: #64748b; border-radius: 50%; animation: typing 1.4s infinite; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing { 0%, 60%, 100% { transform: translateY(0); opacity: 0.5; } 30% { transform: translateY(-4px); opacity: 1; } }
+        .quick-actions { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.08); }
+        .quick-btn { padding: 8px 14px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; color: #94a3b8; font-size: 12px; cursor: pointer; }
+        .quick-btn:active { background: rgba(255,255,255,0.15); }
+        
+        /* Loading */
+        .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 16px; }
+        .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { font-size: 14px; color: #94a3b8; }
+        
+        /* Life counter */
+        .life-counter { background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.12)); border-radius: 16px; padding: 16px; margin-bottom: 16px; border: 1px solid rgba(99,102,241,0.2); }
+        .life-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; text-align: center; }
+        .life-stat-number { font-size: 20px; font-weight: 700; color: #fff; }
+        .life-stat-number.yellow { color: #fbbf24; }
+        .life-stat-number.green { color: #10b981; }
+        .life-stat-label { font-size: 11px; color: #64748b; margin-top: 2px; }
+        
+        /* Morning data */
+        .morning-data { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .morning-data:last-child { border-bottom: none; }
+        .morning-data-label { font-size: 14px; color: #94a3b8; }
+        .morning-data-value { font-size: 14px; font-weight: 600; color: #fff; }
+        .morning-data-value.good { color: #10b981; }
+        .morning-data-value.warning { color: #fbbf24; }
+        .morning-data-value.bad { color: #ef4444; }
+        
+        /* System status */
+        .system-status { display: flex; align-items: center; gap: 14px; border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+        .system-status.incomplete { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
+        .system-status.complete { background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.1)); border: 1px solid rgba(16,185,129,0.3); }
+        .system-icon { font-size: 32px; }
+        .system-info { flex: 1; }
+        .system-title { font-size: 16px; font-weight: 700; color: #e2e8f0; }
+        .system-status.complete .system-title { color: #10b981; }
+        .system-subtitle { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+        .streak-badge { background: rgba(251,146,60,0.2); padding: 6px 10px; border-radius: 12px; font-size: 12px; color: #fb923c; font-weight: 600; }
+        
+        /* Habits */
+        .habit-section { margin-bottom: 14px; border-radius: 16px; padding: 16px; background: rgba(255,255,255,0.03); }
+        .habit-section.inactive { opacity: 0.4; }
+        .habit-section.green { border: 1px solid rgba(16,185,129,0.4); }
+        .habit-section.blue { border: 1px solid rgba(59,130,246,0.4); }
+        .habit-section.purple { border: 1px solid rgba(139,92,246,0.4); }
+        .habit-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .habit-title { font-size: 15px; font-weight: 700; }
+        .habit-title.green { color: #10b981; }
+        .habit-title.blue { color: #3b82f6; }
+        .habit-title.purple { color: #8b5cf6; }
+        .habit-counter { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; }
+        .habit-counter.green { background: rgba(16,185,129,0.25); color: #10b981; }
+        .habit-counter.blue { background: rgba(59,130,246,0.25); color: #3b82f6; }
+        .habit-counter.purple { background: rgba(139,92,246,0.25); color: #8b5cf6; }
+        .habit-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; margin-bottom: 6px; cursor: pointer; background: rgba(255,255,255,0.02); }
+        .habit-item:active { transform: scale(0.98); }
+        .habit-item.checked.green { background: rgba(16,185,129,0.1); }
+        .habit-item.checked.blue { background: rgba(59,130,246,0.1); }
+        .habit-item.checked.purple { background: rgba(139,92,246,0.1); }
+        .checkbox { width: 24px; height: 24px; border-radius: 6px; border: 2px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; }
+        .habit-item.checked .checkbox { background: currentColor; border-color: currentColor; }
+        .habit-item.checked.green .checkbox { color: #10b981; }
+        .habit-item.checked.blue .checkbox { color: #3b82f6; }
+        .habit-item.checked.purple .checkbox { color: #8b5cf6; }
+        .checkbox-mark { color: #fff; font-size: 14px; display: none; }
+        .habit-item.checked .checkbox-mark { display: block; }
+        .habit-item-label { flex: 1; font-size: 14px; color: #e2e8f0; }
+        .habit-item.checked .habit-item-label { text-decoration: line-through; opacity: 0.7; }
+        
+        /* Bottom nav */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(10,15,26,0.95); backdrop-filter: blur(10px); border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-around; padding: 12px 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); z-index: 100; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #64748b; cursor: pointer; padding: 8px 16px; border-radius: 12px; }
+        .nav-item.active { color: #3b82f6; background: rgba(59,130,246,0.1); }
+        .nav-item-icon { font-size: 20px; }
+        .nav-item-label { font-size: 11px; }
+        
+        /* Reminders */
+        .reminders { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+        .reminders-title { font-size: 14px; font-weight: 600; color: #f87171; margin-bottom: 10px; }
+        .reminder-item { display: flex; gap: 8px; font-size: 13px; color: #e2e8f0; padding: 4px 0; }
+        
+        /* Key status */
+        .key-status { display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; margin-bottom: 16px; }
+        .key-status.valid { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); }
+        .key-status.invalid { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); }
+        .key-status-icon { font-size: 20px; }
+        .key-status-text { font-size: 14px; }
+        .key-status.valid .key-status-text { color: #10b981; }
+        .key-status.invalid .key-status-text { color: #f87171; }
+        
+        /* ========== NUTRITION STYLES ========== */
+        .nutrition-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        
+        .nutrition-card {
+            background: rgba(255,255,255,0.04);
+            border-radius: 14px;
+            padding: 14px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        
+        .nutrition-card.calories {
+            grid-column: span 2;
+            background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.15));
+            border-color: rgba(99,102,241,0.3);
+        }
+        
+        .nutrition-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #fff;
+        }
+        
+        .nutrition-card.calories .nutrition-value { font-size: 36px; }
+        
+        .nutrition-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        
+        .nutrition-progress {
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .nutrition-progress-bar {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+        
+        .nutrition-progress-bar.good { background: #10b981; }
+        .nutrition-progress-bar.warning { background: #fbbf24; }
+        .nutrition-progress-bar.over { background: #ef4444; }
+        
+        .nutrition-remaining {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+        
+        /* Photo upload */
+        .photo-upload-area {
+            border: 2px dashed rgba(255,255,255,0.2);
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 16px;
+        }
+        
+        .photo-upload-area:active {
+            border-color: #3b82f6;
+            background: rgba(59,130,246,0.1);
+        }
+        
+        .photo-upload-icon { font-size: 48px; margin-bottom: 12px; }
+        .photo-upload-text { font-size: 14px; color: #94a3b8; }
+        .photo-upload-hint { font-size: 12px; color: #64748b; margin-top: 8px; }
+        
+        .photo-preview {
+            width: 100%;
+            max-height: 200px;
+            object-fit: cover;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+        
+        /* Food log */
+        .food-log-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        
+        .food-log-icon { font-size: 28px; }
+        
+        .food-log-info { flex: 1; }
+        
+        .food-log-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+        
+        .food-log-details {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+        
+        .food-log-calories {
+            font-size: 16px;
+            font-weight: 700;
+            color: #3b82f6;
+        }
+        
+        .food-log-time {
+            font-size: 11px;
+            color: #64748b;
+        }
+        
+        .food-log-delete {
+            padding: 8px;
+            background: rgba(239,68,68,0.1);
+            border: none;
+            border-radius: 8px;
+            color: #f87171;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        /* Nutrition table */
+        .nutrition-table {
+            width: 100%;
+            font-size: 13px;
+        }
+        
+        .nutrition-table-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        
+        .nutrition-table-row:last-child { border-bottom: none; }
+        
+        .nutrition-table-label { color: #94a3b8; }
+        
+        .nutrition-table-values {
+            display: flex;
+            gap: 16px;
+        }
+        
+        .nutrition-table-plan { color: #64748b; }
+        .nutrition-table-fact { color: #fff; font-weight: 600; }
+        .nutrition-table-fact.good { color: #10b981; }
+        .nutrition-table-fact.warning { color: #fbbf24; }
+        .nutrition-table-fact.over { color: #ef4444; }
+        
+        /* Text input for food */
+        .food-input-row {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .food-input {
+            flex: 1;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px;
+            padding: 14px 16px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .food-input:focus {
+            border-color: #3b82f6;
+        }
+        
+        .food-input::placeholder { color: #64748b; }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            color: #94a3b8;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.2));
+            border-color: rgba(99,102,241,0.4);
+            color: #fff;
+        }
+        
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #64748b;
+        }
+        
+        .empty-state-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+        .empty-state-text { font-size: 14px; }
+        
+        /* ========== EVENING STYLES ========== */
+        .bp-comparison {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding: 16px 0;
+        }
+        
+        .bp-comparison-item { text-align: center; }
+        .bp-comparison-label { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+        .bp-comparison-value { font-size: 20px; font-weight: 700; color: #fff; }
+        .bp-comparison-arrow { font-size: 24px; color: #64748b; }
+        
+        .bp-comparison-change {
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .bp-comparison-change.good { background: rgba(16,185,129,0.2); color: #10b981; }
+        .bp-comparison-change.warning { background: rgba(251,191,36,0.2); color: #fbbf24; }
+        .bp-comparison-change.bad { background: rgba(239,68,68,0.2); color: #ef4444; }
+        
+        .day-summary { padding: 8px 0; }
+        
+        .day-summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        
+        .day-summary-row:last-child { border-bottom: none; }
+        .day-summary-label { color: #94a3b8; font-size: 14px; }
+        .day-summary-value { color: #fff; font-size: 14px; font-weight: 600; }
+        .day-summary-value.good { color: #10b981; }
+        .day-summary-value.warning { color: #fbbf24; }
+        .day-summary-value.bad { color: #ef4444; }
+        
+        .day-rating {
+            display: flex;
+            justify-content: space-around;
+            padding: 16px 0;
+        }
+        
+        .rating-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.03);
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .rating-btn:active { transform: scale(0.9); }
+        
+        .rating-btn.selected {
+            border-color: #3b82f6;
+            background: rgba(59,130,246,0.2);
+            transform: scale(1.1);
+        }
+        
+        .day-rating-label {
+            text-align: center;
+            font-size: 13px;
+            color: #64748b;
+            margin-top: 8px;
+        }
+        
+        .sleep-checklist { padding: 8px 0; }
+        
+        .sleep-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.02);
+            font-size: 14px;
+            color: #e2e8f0;
+        }
+        
+        .sleep-item:active { transform: scale(0.98); }
+        
+        .sleep-item.checked {
+            background: rgba(139,92,246,0.1);
+        }
+        
+        .sleep-item.checked .checkbox {
+            background: #8b5cf6;
+            border-color: #8b5cf6;
+        }
+        
+        .sleep-item.checked span:last-child {
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+        
+        /* Breathing sessions */
+        .breathing-add { margin-bottom: 12px; }
+        
+        .breathing-log-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(139,92,246,0.08);
+            border: 1px solid rgba(139,92,246,0.2);
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .breathing-log-icon { font-size: 24px; }
+        .breathing-log-info { flex: 1; }
+        .breathing-log-type { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+        .breathing-log-details { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+        .breathing-log-time { font-size: 11px; color: #64748b; }
+        
+        .breathing-log-delete {
+            padding: 6px;
+            background: rgba(239,68,68,0.1);
+            border: none;
+            border-radius: 6px;
+            color: #f87171;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .bp-change-badge {
+            text-align: center;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+        
+        .bp-change-badge.good { background: rgba(16,185,129,0.2); color: #10b981; }
+        .bp-change-badge.warning { background: rgba(251,191,36,0.2); color: #fbbf24; }
+        .bp-change-badge.bad { background: rgba(239,68,68,0.2); color: #ef4444; }
+        
+        select.input-field {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+        
+        /* ========== TRENDS STYLES ========== */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            margin: 12px 0;
+        }
+        
+        .chart-container canvas {
+            width: 100% !important;
+        }
+        
+        .chart-legend {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 8px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+        
+        .chart-stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        
+        .chart-stat {
+            text-align: center;
+        }
+        
+        .chart-stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+        }
+        
+        .chart-stat-value.good { color: #10b981; }
+        .chart-stat-value.warning { color: #fbbf24; }
+        .chart-stat-value.bad { color: #ef4444; }
+        
+        .chart-stat-label {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+        
+        .trends-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .trends-summary-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+        }
+        
+        .trends-summary-label {
+            font-size: 12px;
+            color: #64748b;
+        }
+        
+        .trends-summary-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            margin-top: 4px;
+        }
+        
+        .no-data-message {
+            text-align: center;
+            padding: 30px;
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        /* Oura data grid */
+        .oura-data-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .oura-data-item {
+            background: rgba(139,92,246,0.1);
+            border: 1px solid rgba(139,92,246,0.2);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .oura-data-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #a78bfa;
+        }
+        
+        .oura-data-value.good { color: #10b981; }
+        .oura-data-value.warning { color: #fbbf24; }
+        .oura-data-value.bad { color: #ef4444; }
+        
+        .oura-data-label {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+        
+        .oura-import-success {
+            background: rgba(16,185,129,0.1);
+            border: 1px solid rgba(16,185,129,0.3);
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 12px;
+            text-align: center;
+            color: #10b981;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <button class="settings-btn" id="settingsBtn" onclick="showSettings()">⚙️</button>
+    
+    <div class="sync-status synced" id="syncStatus">
+        <span id="syncIcon">☁️</span>
+        <span id="syncText">Синхронизировано</span>
+    </div>
+
+    <div class="container">
+        <!-- Loading -->
+        <div id="loadingScreen" class="loading">
+            <div class="spinner"></div>
+            <div class="loading-text">Загрузка...</div>
+        </div>
+        
+        <!-- Setup Screen -->
+        <div id="setupScreen" class="hidden">
+            <div class="header">
+                <div class="header-title">🔐 Настройка AI</div>
+                <div class="header-subtitle">Введи API ключ OpenRouter</div>
+            </div>
+            <div class="card">
+                <div class="card-title">API Ключ</div>
+                <div class="input-group">
+                    <input type="password" class="input-field" id="apiKeyInput" placeholder="sk-or-v1-...">
+                    <div class="input-hint">Ключ хранится только локально</div>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="saveApiKey()">Сохранить</button>
+            <button class="btn btn-secondary" onclick="skipApiKey()">Без AI</button>
+        </div>
+        
+        <!-- Settings Screen -->
+        <div id="settingsScreen" class="hidden">
+            <div class="header">
+                <div class="header-title">⚙️ Настройки</div>
+            </div>
+            
+            <!-- OpenRouter API -->
+            <div class="card">
+                <div class="card-title">🤖 OpenRouter API (AI)</div>
+                <div class="key-status" id="keyStatus">
+                    <span class="key-status-icon" id="keyStatusIcon">✅</span>
+                    <span class="key-status-text" id="keyStatusText">Ключ установлен</span>
+                </div>
+                <div class="input-group">
+                    <input type="password" class="input-field" id="apiKeyEdit" placeholder="sk-or-v1-...">
+                </div>
+                <button class="btn btn-secondary" onclick="updateApiKey()">Обновить</button>
+                <button class="btn btn-danger" onclick="deleteApiKey()">Удалить</button>
+            </div>
+            
+            <!-- Oura API -->
+            <div class="card">
+                <div class="card-title">💍 Oura Ring API</div>
+                <div class="key-status" id="ouraKeyStatus">
+                    <span class="key-status-icon" id="ouraKeyStatusIcon">❌</span>
+                    <span class="key-status-text" id="ouraKeyStatusText">Не подключено</span>
+                </div>
+                <div class="input-group">
+                    <input type="password" class="input-field" id="ouraKeyEdit" placeholder="Oura Personal Access Token...">
+                    <div class="input-hint">
+                        <a href="https://cloud.ouraring.com/personal-access-tokens" target="_blank" style="color: #60a5fa;">Получить токен →</a>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" onclick="updateOuraKey()">Подключить Oura</button>
+                <button class="btn btn-danger" onclick="deleteOuraKey()">Отключить</button>
+            </div>
+            
+            <button class="btn btn-primary" onclick="closeSettings()" style="margin-top: 20px;">← Назад</button>
+        </div>
+        
+        <!-- Morning Screen -->
+        <div id="morningScreen" class="hidden">
+            <div class="header">
+                <div class="header-date" id="morningDate"></div>
+                <div class="header-title">🌅 Утренний чек-ин</div>
+            </div>
+            
+            <!-- Oura Import Button -->
+            <div id="ouraImportSection" class="card hidden">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 32px;">💍</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; color: #e2e8f0;">Oura Ring</div>
+                        <div style="font-size: 12px; color: #64748b;" id="ouraImportStatus">Подключено</div>
+                    </div>
+                    <button class="btn btn-primary btn-small" onclick="importFromOura()" id="ouraImportBtn">
+                        📥 Импорт
+                    </button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">💍 Oura Readiness</div>
+                <div class="input-row">
+                    <input type="number" class="input-field center" id="ouraReadiness" placeholder="78" min="0" max="100">
+                    <span class="input-unit">из 100</span>
+                </div>
+            </div>
+            
+            <!-- Sleep data from Oura -->
+            <div class="card" id="sleepDataCard">
+                <div class="card-title">😴 Сон (из Oura)</div>
+                <div class="oura-data-grid">
+                    <div class="oura-data-item">
+                        <div class="oura-data-value" id="ouraSleepDuration">—</div>
+                        <div class="oura-data-label">Длительность</div>
+                    </div>
+                    <div class="oura-data-item">
+                        <div class="oura-data-value" id="ouraSleepEfficiency">—</div>
+                        <div class="oura-data-label">Эффективность</div>
+                    </div>
+                    <div class="oura-data-item">
+                        <div class="oura-data-value" id="ouraHRV">—</div>
+                        <div class="oura-data-label">HRV (мс)</div>
+                    </div>
+                    <div class="oura-data-item">
+                        <div class="oura-data-value" id="ouraRestingHR">—</div>
+                        <div class="oura-data-label">Пульс покоя</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">💓 Давление и пульс</div>
+                <div class="input-group">
+                    <div class="input-row">
+                        <input type="number" class="input-field center" id="bpSystolic" placeholder="125" min="80" max="200">
+                        <span class="input-separator">/</span>
+                        <input type="number" class="input-field center" id="bpDiastolic" placeholder="82" min="50" max="130">
+                    </div>
+                </div>
+                <div class="input-row">
+                    <input type="number" class="input-field center" id="pulse" placeholder="65" min="40" max="150">
+                    <span class="input-unit">уд/мин</span>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="toggle-row" onclick="toggleEliteHRV()">
+                    <span class="toggle-label">📊 EliteHRV</span>
+                    <div class="toggle" id="eliteToggle"></div>
+                </div>
+                <div id="eliteFields" class="hidden" style="margin-top: 12px;">
+                    <div class="input-row">
+                        <input type="number" class="input-field center" id="eliteScore" placeholder="7" min="1" max="10">
+                        <span class="input-unit">из 10</span>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" id="analyzeBtn" onclick="analyzeMorning()">🤖 Получить анализ AI</button>
+            
+            <div id="chatContainer" class="chat-container hidden">
+                <div class="chat-header">
+                    <div class="chat-avatar">🤖</div>
+                    <div class="chat-info">
+                        <div class="chat-name">AI-ассистент</div>
+                        <div class="chat-status" id="chatStatus">онлайн</div>
+                    </div>
+                    <div id="dayBadge" class="day-badge normal">⚡</div>
+                </div>
+                <div class="chat-messages" id="chatMessages"></div>
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="askQuestion('Что поесть на завтрак?')">🍳 Завтрак</button>
+                    <button class="quick-btn" onclick="askQuestion('Можно ли кофе?')">☕ Кофе</button>
+                    <button class="quick-btn" onclick="askQuestion('Какую тренировку?')">🏋️ Тренировка</button>
+                </div>
+                <div class="chat-input-container">
+                    <input type="text" class="chat-input" id="chatInput" placeholder="Задай вопрос..." onkeypress="handleChatKeypress(event)">
+                    <button class="chat-send" onclick="sendChatMessage()">➤</button>
+                </div>
+            </div>
+            
+            <button class="btn btn-primary hidden" id="startDayBtn" onclick="startDay()" style="margin-top: 16px;">Начать день →</button>
+        </div>
+        
+        <!-- Main Screen -->
+        <div id="mainScreen" class="hidden">
+            <div class="header">
+                <div class="header-date" id="mainDate"></div>
+                <div style="display: flex; align-items: center; justify-content: center; gap: 12px;">
+                    <span class="header-title">Life Tracker</span>
+                    <div id="mainBadge" class="day-badge normal">⚡</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">🌅 Утренние показатели</div>
+                <div class="morning-data">
+                    <span class="morning-data-label">Oura Readiness</span>
+                    <span class="morning-data-value" id="sumOura">—</span>
+                </div>
+                <div class="morning-data">
+                    <span class="morning-data-label">Давление</span>
+                    <span class="morning-data-value" id="sumBP">—</span>
+                </div>
+                <div class="morning-data">
+                    <span class="morning-data-label">Пульс</span>
+                    <span class="morning-data-value" id="sumPulse">—</span>
+                </div>
+            </div>
+            
+            <div class="life-counter">
+                <div class="life-stats">
+                    <div>
+                        <div class="life-stat-number" id="daysLived">17 804</div>
+                        <div class="life-stat-label">прожито</div>
+                    </div>
+                    <div>
+                        <div class="life-stat-number yellow" id="daysToPension">5 937</div>
+                        <div class="life-stat-label">до пенсии</div>
+                    </div>
+                    <div>
+                        <div class="life-stat-number green" id="daysToGoal">15 068</div>
+                        <div class="life-stat-label">до 90 лет</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="system-status" id="systemStatus">
+                <div class="system-icon" id="systemIcon">🔄</div>
+                <div class="system-info">
+                    <div class="system-title" id="systemTitle">Выполни минимум</div>
+                    <div class="system-subtitle" id="systemSubtitle">Осталось: 3 из 3</div>
+                </div>
+                <div class="streak-badge" id="streakBadge">🔥 0</div>
+            </div>
+            
+            <div id="habitsContainer"></div>
+            
+            <div class="reminders">
+                <div class="reminders-title">⚠️ Помни</div>
+                <div class="reminder-item"><span>🩸</span><span>Без добавок с железом</span></div>
+                <div class="reminder-item"><span>☕</span><span>Кофеин ≤150 мг, до 14:00</span></div>
+                <div class="reminder-item"><span>🧂</span><span>Соль ≤5 г</span></div>
+            </div>
+            
+            <div class="chat-container" id="mainChatContainer">
+                <div class="chat-header" onclick="toggleMainChat()">
+                    <div class="chat-avatar">🤖</div>
+                    <div class="chat-info">
+                        <div class="chat-name">Спросить AI</div>
+                        <div class="chat-status">задай вопрос</div>
+                    </div>
+                    <span id="chatToggleIcon">▼</span>
+                </div>
+                <div id="mainChatBody" class="hidden">
+                    <div class="chat-messages" id="mainChatMessages"></div>
+                    <div class="quick-actions">
+                        <button class="quick-btn" onclick="askMainQuestion('Как прошёл день?')">📊 Анализ</button>
+                        <button class="quick-btn" onclick="askMainQuestion('Что на ужин?')">🍽️ Ужин</button>
+                        <button class="quick-btn" onclick="askMainQuestion('Как улучшить сон?')">😴 Сон</button>
+                    </div>
+                    <div class="chat-input-container">
+                        <input type="text" class="chat-input" id="mainChatInput" placeholder="Вопрос..." onkeypress="handleMainChatKeypress(event)">
+                        <button class="chat-send" onclick="sendMainChatMessage()">➤</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ========== NUTRITION SCREEN ========== -->
+        <div id="nutritionScreen" class="hidden">
+            <div class="header">
+                <div class="header-date" id="nutritionDate"></div>
+                <div class="header-title">🍽️ Питание</div>
+            </div>
+            
+            <!-- Calories summary -->
+            <div class="nutrition-summary">
+                <div class="nutrition-card calories">
+                    <div class="nutrition-value" id="caloriesValue">0</div>
+                    <div class="nutrition-label">из 2100 ккал</div>
+                    <div class="nutrition-progress">
+                        <div class="nutrition-progress-bar good" id="caloriesBar" style="width: 0%"></div>
+                    </div>
+                    <div class="nutrition-remaining" id="caloriesRemaining">Осталось: 2100 ккал</div>
+                </div>
+                
+                <div class="nutrition-card">
+                    <div class="nutrition-value" id="proteinValue">0</div>
+                    <div class="nutrition-label">Белки (200г)</div>
+                    <div class="nutrition-progress">
+                        <div class="nutrition-progress-bar good" id="proteinBar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div class="nutrition-card">
+                    <div class="nutrition-value" id="fatValue">0</div>
+                    <div class="nutrition-label">Жиры (65г)</div>
+                    <div class="nutrition-progress">
+                        <div class="nutrition-progress-bar good" id="fatBar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div class="nutrition-card">
+                    <div class="nutrition-value" id="carbsValue">0</div>
+                    <div class="nutrition-label">Углеводы (135г)</div>
+                    <div class="nutrition-progress">
+                        <div class="nutrition-progress-bar good" id="carbsBar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div class="nutrition-card">
+                    <div class="nutrition-value" id="fiberValue">0</div>
+                    <div class="nutrition-label">Клетчатка (30г)</div>
+                    <div class="nutrition-progress">
+                        <div class="nutrition-progress-bar good" id="fiberBar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Add food -->
+            <div class="card">
+                <div class="card-title">➕ Добавить еду</div>
+                
+                <!-- Photo upload -->
+                <input type="file" id="foodPhotoInput" accept="image/*" capture="environment" style="display: none;" onchange="handleFoodPhoto(event)">
+                
+                <div class="photo-upload-area" id="photoUploadArea" onclick="document.getElementById('foodPhotoInput').click()">
+                    <div class="photo-upload-icon">📸</div>
+                    <div class="photo-upload-text">Сфотографируй еду</div>
+                    <div class="photo-upload-hint">AI определит состав и калории</div>
+                </div>
+                
+                <img id="foodPhotoPreview" class="photo-preview hidden" alt="Preview">
+                
+                <div style="text-align: center; color: #64748b; margin: 12px 0;">или</div>
+                
+                <!-- Text input -->
+                <div class="food-input-row">
+                    <input type="text" class="food-input" id="foodTextInput" placeholder="Опиши что съел..." onkeypress="handleFoodKeypress(event)">
+                    <button class="btn btn-primary btn-small" onclick="analyzeFoodText()" id="addFoodBtn">➤</button>
+                </div>
+                <div class="input-hint">Например: "200г куриной грудки, рис 150г, салат"</div>
+            </div>
+            
+            <!-- AI analyzing -->
+            <div id="foodAnalyzing" class="card hidden">
+                <div class="loading" style="padding: 20px;">
+                    <div class="spinner"></div>
+                    <div class="loading-text">AI анализирует...</div>
+                </div>
+            </div>
+            
+            <!-- Food log -->
+            <div class="card">
+                <div class="card-title">📝 Сегодня съедено</div>
+                <div id="foodLogContainer">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🍽️</div>
+                        <div class="empty-state-text">Пока ничего не добавлено</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Detailed table -->
+            <div class="card">
+                <div class="card-title">📊 Детальная таблица</div>
+                <div class="nutrition-table">
+                    <div class="nutrition-table-row">
+                        <span class="nutrition-table-label">Калории</span>
+                        <div class="nutrition-table-values">
+                            <span class="nutrition-table-plan">2100</span>
+                            <span class="nutrition-table-fact" id="tableCalories">0</span>
+                        </div>
+                    </div>
+                    <div class="nutrition-table-row">
+                        <span class="nutrition-table-label">Белки</span>
+                        <div class="nutrition-table-values">
+                            <span class="nutrition-table-plan">200г</span>
+                            <span class="nutrition-table-fact" id="tableProtein">0г</span>
+                        </div>
+                    </div>
+                    <div class="nutrition-table-row">
+                        <span class="nutrition-table-label">Жиры</span>
+                        <div class="nutrition-table-values">
+                            <span class="nutrition-table-plan">65г</span>
+                            <span class="nutrition-table-fact" id="tableFat">0г</span>
+                        </div>
+                    </div>
+                    <div class="nutrition-table-row">
+                        <span class="nutrition-table-label">Углеводы</span>
+                        <div class="nutrition-table-values">
+                            <span class="nutrition-table-plan">135г</span>
+                            <span class="nutrition-table-fact" id="tableCarbs">0г</span>
+                        </div>
+                    </div>
+                    <div class="nutrition-table-row">
+                        <span class="nutrition-table-label">Клетчатка</span>
+                        <div class="nutrition-table-values">
+                            <span class="nutrition-table-plan">30г</span>
+                            <span class="nutrition-table-fact" id="tableFiber">0г</span>
+                        </div>
+                    </div>
+                    <div class="nutrition-table-row">
+                        <span class="nutrition-table-label">Соль</span>
+                        <div class="nutrition-table-values">
+                            <span class="nutrition-table-plan">≤5г</span>
+                            <span class="nutrition-table-fact" id="tableSalt">0г</span>
+                        </div>
+                    </div>
+                    <div class="nutrition-table-row">
+                        <span class="nutrition-table-label">Кофеин</span>
+                        <div class="nutrition-table-values">
+                            <span class="nutrition-table-plan">≤150мг</span>
+                            <span class="nutrition-table-fact" id="tableCaffeine">0мг</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- AI Tips -->
+            <div class="chat-container">
+                <div class="chat-header" onclick="toggleNutritionChat()">
+                    <div class="chat-avatar">🤖</div>
+                    <div class="chat-info">
+                        <div class="chat-name">AI-советы по питанию</div>
+                        <div class="chat-status">что ещё съесть?</div>
+                    </div>
+                    <span id="nutritionChatToggle">▼</span>
+                </div>
+                <div id="nutritionChatBody" class="hidden">
+                    <div class="chat-messages" id="nutritionChatMessages"></div>
+                    <div class="quick-actions">
+                        <button class="quick-btn" onclick="askNutritionQuestion('Чего не хватает?')">❓ Чего не хватает</button>
+                        <button class="quick-btn" onclick="askNutritionQuestion('Идеи на перекус')">🍎 Перекус</button>
+                        <button class="quick-btn" onclick="askNutritionQuestion('Что на ужин?')">🍽️ Ужин</button>
+                    </div>
+                    <div class="chat-input-container">
+                        <input type="text" class="chat-input" id="nutritionChatInput" placeholder="Вопрос про питание..." onkeypress="handleNutritionChatKeypress(event)">
+                        <button class="chat-send" onclick="sendNutritionChatMessage()">➤</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ========== EVENING SCREEN ========== -->
+        <div id="eveningScreen" class="hidden">
+            <div class="header">
+                <div class="header-date" id="eveningDate"></div>
+                <div class="header-title">🌙 Вечерний отчёт</div>
+            </div>
+            
+            <!-- Evening BP -->
+            <div class="card">
+                <div class="card-title">💓 Вечернее давление</div>
+                <div class="input-group">
+                    <div class="input-row">
+                        <input type="number" class="input-field center" id="eveningBpSystolic" placeholder="120" min="80" max="200">
+                        <span class="input-separator">/</span>
+                        <input type="number" class="input-field center" id="eveningBpDiastolic" placeholder="80" min="50" max="130">
+                    </div>
+                </div>
+                <div class="input-row">
+                    <input type="number" class="input-field center" id="eveningPulse" placeholder="62" min="40" max="150">
+                    <span class="input-unit">уд/мин</span>
+                </div>
+                <button class="btn btn-secondary" onclick="saveEveningBP()" style="margin-top: 12px;">Сохранить АД</button>
+            </div>
+            
+            <!-- BP comparison -->
+            <div class="card" id="bpComparisonCard">
+                <div class="card-title">📊 Сравнение АД</div>
+                <div class="bp-comparison">
+                    <div class="bp-comparison-item">
+                        <div class="bp-comparison-label">🌅 Утро</div>
+                        <div class="bp-comparison-value" id="morningBpValue">—</div>
+                    </div>
+                    <div class="bp-comparison-arrow">→</div>
+                    <div class="bp-comparison-item">
+                        <div class="bp-comparison-label">🌙 Вечер</div>
+                        <div class="bp-comparison-value" id="eveningBpValue">—</div>
+                    </div>
+                </div>
+                <div class="bp-change-badge" id="bpChangeValue"></div>
+            </div>
+            
+            <!-- Breathing sessions -->
+            <div class="card">
+                <div class="card-title">🌬️ Дыхательные сессии</div>
+                
+                <!-- Add breathing session -->
+                <div class="breathing-add">
+                    <div class="input-group">
+                        <label class="input-label">Тип практики</label>
+                        <select class="input-field" id="breathingType">
+                            <option value="resonance">Резонансное (6 вд/мин)</option>
+                            <option value="478">4-7-8 релаксация</option>
+                            <option value="box">Квадратное дыхание</option>
+                            <option value="other">Другое</option>
+                        </select>
+                    </div>
+                    <div class="input-row" style="margin-bottom: 12px;">
+                        <div class="input-group" style="flex: 1; margin-bottom: 0;">
+                            <label class="input-label">Длительность</label>
+                            <div class="input-row">
+                                <input type="number" class="input-field center" id="breathingDuration" placeholder="5" min="1" max="60">
+                                <span class="input-unit">мин</span>
+                            </div>
+                        </div>
+                        <div class="input-group" style="flex: 1; margin-bottom: 0;">
+                            <label class="input-label">RMSSD после</label>
+                            <div class="input-row">
+                                <input type="number" class="input-field center" id="breathingRmssd" placeholder="45">
+                                <span class="input-unit">мс</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="addBreathingSession()">➕ Добавить сессию</button>
+                </div>
+                
+                <!-- Breathing log -->
+                <div id="breathingLogContainer" style="margin-top: 16px;"></div>
+            </div>
+            
+            <!-- Day summary -->
+            <div class="card">
+                <div class="card-title">📋 Итоги дня</div>
+                <div class="day-summary">
+                    <div class="day-summary-row">
+                        <span class="day-summary-label">Тип дня</span>
+                        <span class="day-summary-value" id="summaryDayType">—</span>
+                    </div>
+                    <div class="day-summary-row">
+                        <span class="day-summary-label">Привычки</span>
+                        <span class="day-summary-value" id="summaryHabits">—</span>
+                    </div>
+                    <div class="day-summary-row">
+                        <span class="day-summary-label">Калории</span>
+                        <span class="day-summary-value" id="summaryCalories">—</span>
+                    </div>
+                    <div class="day-summary-row">
+                        <span class="day-summary-label">Белок</span>
+                        <span class="day-summary-value" id="summaryProtein">—</span>
+                    </div>
+                    <div class="day-summary-row">
+                        <span class="day-summary-label">Дыхание</span>
+                        <span class="day-summary-value" id="summaryBreathing">—</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Get AI analysis -->
+            <button class="btn btn-primary" id="getEveningAnalysis" onclick="getEveningAnalysis()">
+                🤖 Получить AI-анализ дня
+            </button>
+            
+            <!-- AI Analysis result -->
+            <div id="eveningAnalysisResult" class="hidden">
+                <div class="chat-container" style="margin-top: 16px;">
+                    <div class="chat-header">
+                        <div class="chat-avatar">🤖</div>
+                        <div class="chat-info">
+                            <div class="chat-name">Анализ дня</div>
+                            <div class="chat-status" id="eveningChatStatus">готово</div>
+                        </div>
+                    </div>
+                    <div class="chat-messages" id="eveningChatMessages"></div>
+                    <div class="quick-actions">
+                        <button class="quick-btn" onclick="askEveningQuestion('Как улучшить сон?')">😴 Сон</button>
+                        <button class="quick-btn" onclick="askEveningQuestion('Что делать завтра?')">📅 Завтра</button>
+                        <button class="quick-btn" onclick="askEveningQuestion('Оцени моё дыхание')">🌬️ Дыхание</button>
+                    </div>
+                    <div class="chat-input-container">
+                        <input type="text" class="chat-input" id="eveningChatInput" placeholder="Вопрос про день..." onkeypress="handleEveningChatKeypress(event)">
+                        <button class="chat-send" onclick="sendEveningChatMessage()">➤</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Day rating -->
+            <div class="card" style="margin-top: 16px;">
+                <div class="card-title">⭐ Оценка дня</div>
+                <div class="day-rating" id="dayRating">
+                    <button class="rating-btn" data-rating="1" onclick="rateDay(1)">😫</button>
+                    <button class="rating-btn" data-rating="2" onclick="rateDay(2)">😕</button>
+                    <button class="rating-btn" data-rating="3" onclick="rateDay(3)">😐</button>
+                    <button class="rating-btn" data-rating="4" onclick="rateDay(4)">🙂</button>
+                    <button class="rating-btn" data-rating="5" onclick="rateDay(5)">😊</button>
+                </div>
+                <div class="day-rating-label" id="dayRatingLabel">Как прошёл день?</div>
+            </div>
+            
+            <!-- Sleep prep -->
+            <div class="card">
+                <div class="card-title">😴 Подготовка ко сну</div>
+                <div class="sleep-checklist" id="sleepChecklist">
+                    <div class="sleep-item" data-id="no_screens" onclick="toggleSleepItem('no_screens')">
+                        <div class="checkbox"><span class="checkbox-mark">✓</span></div>
+                        <span>Отложил телефон за 30 мин</span>
+                    </div>
+                    <div class="sleep-item" data-id="no_caffeine" onclick="toggleSleepItem('no_caffeine')">
+                        <div class="checkbox"><span class="checkbox-mark">✓</span></div>
+                        <span>Без кофеина после 14:00</span>
+                    </div>
+                    <div class="sleep-item" data-id="breathing_evening" onclick="toggleSleepItem('breathing_evening')">
+                        <div class="checkbox"><span class="checkbox-mark">✓</span></div>
+                        <span>Вечернее дыхание 4-7-8</span>
+                    </div>
+                    <div class="sleep-item" data-id="room_ready" onclick="toggleSleepItem('room_ready')">
+                        <div class="checkbox"><span class="checkbox-mark">✓</span></div>
+                        <span>Комната проветрена, темно</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ========== TRENDS SCREEN ========== -->
+        <div id="trendsScreen" class="hidden">
+            <div class="header">
+                <div class="header-title">📈 Тренды</div>
+                <div class="header-subtitle">Статистика за последние дни</div>
+            </div>
+            
+            <!-- Period selector -->
+            <div class="tabs" style="margin-bottom: 16px;">
+                <button class="tab active" data-period="7" onclick="setPeriod(7)">7 дней</button>
+                <button class="tab" data-period="14" onclick="setPeriod(14)">14 дней</button>
+                <button class="tab" data-period="30" onclick="setPeriod(30)">30 дней</button>
+            </div>
+            
+            <!-- BP Chart -->
+            <div class="card">
+                <div class="card-title">💓 Артериальное давление</div>
+                <div class="chart-container">
+                    <canvas id="bpChart" height="180"></canvas>
+                </div>
+                <div class="chart-legend">
+                    <span class="legend-item"><span class="legend-color" style="background: #ef4444;"></span>Систолическое</span>
+                    <span class="legend-item"><span class="legend-color" style="background: #3b82f6;"></span>Диастолическое</span>
+                </div>
+                <div class="chart-stats" id="bpStats"></div>
+            </div>
+            
+            <!-- Oura Chart -->
+            <div class="card">
+                <div class="card-title">💍 Oura Readiness</div>
+                <div class="chart-container">
+                    <canvas id="ouraChart" height="150"></canvas>
+                </div>
+                <div class="chart-stats" id="ouraStats"></div>
+            </div>
+            
+            <!-- Nutrition Chart -->
+            <div class="card">
+                <div class="card-title">🍽️ Питание</div>
+                <div class="chart-container">
+                    <canvas id="nutritionChart" height="150"></canvas>
+                </div>
+                <div class="chart-legend">
+                    <span class="legend-item"><span class="legend-color" style="background: #8b5cf6;"></span>Калории</span>
+                    <span class="legend-item"><span class="legend-color" style="background: #10b981;"></span>Белок</span>
+                </div>
+                <div class="chart-stats" id="nutritionStats"></div>
+            </div>
+            
+            <!-- Habits Chart -->
+            <div class="card">
+                <div class="card-title">✅ Привычки</div>
+                <div class="chart-container">
+                    <canvas id="habitsChart" height="120"></canvas>
+                </div>
+                <div class="chart-stats" id="habitsStats"></div>
+            </div>
+            
+            <!-- Breathing Chart -->
+            <div class="card">
+                <div class="card-title">🌬️ Дыхание</div>
+                <div class="chart-container">
+                    <canvas id="breathingChart" height="120"></canvas>
+                </div>
+                <div class="chart-stats" id="breathingStats"></div>
+            </div>
+            
+            <!-- Summary -->
+            <div class="card">
+                <div class="card-title">📊 Сводка периода</div>
+                <div class="trends-summary">
+                    <div class="trends-summary-item">
+                        <div class="trends-summary-label">Дней в системе</div>
+                        <div class="trends-summary-value" id="summaryDaysInSystem">0</div>
+                    </div>
+                    <div class="trends-summary-item">
+                        <div class="trends-summary-label">Текущий streak</div>
+                        <div class="trends-summary-value" id="summaryStreak">🔥 0</div>
+                    </div>
+                    <div class="trends-summary-item">
+                        <div class="trends-summary-label">Среднее АД</div>
+                        <div class="trends-summary-value" id="summaryAvgBP">—</div>
+                    </div>
+                    <div class="trends-summary-item">
+                        <div class="trends-summary-label">Средний Oura</div>
+                        <div class="trends-summary-value" id="summaryAvgOura">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bottom-nav hidden" id="bottomNav">
+        <div class="nav-item active" data-screen="main" onclick="navigateTo('main')">
+            <span class="nav-item-icon">🏠</span>
+            <span class="nav-item-label">Главная</span>
+        </div>
+        <div class="nav-item" data-screen="nutrition" onclick="navigateTo('nutrition')">
+            <span class="nav-item-icon">🍽️</span>
+            <span class="nav-item-label">Питание</span>
+        </div>
+        <div class="nav-item" data-screen="trends" onclick="navigateTo('trends')">
+            <span class="nav-item-icon">📈</span>
+            <span class="nav-item-label">Тренды</span>
+        </div>
+        <div class="nav-item" data-screen="evening" onclick="navigateTo('evening')">
+            <span class="nav-item-icon">🌙</span>
+            <span class="nav-item-label">Вечер</span>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, get } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyCq10f_AzUXLjsfWEQNRbTUGjBLy-u4hnI",
+            authDomain: "life-tracker-54732.firebaseapp.com",
+            databaseURL: "https://life-tracker-54732-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "life-tracker-54732",
+            storageBucket: "life-tracker-54732.firebasestorage.app",
+            messagingSenderId: "322679590707",
+            appId: "1:322679590707:web:dee9c025719d986e987846"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const userRef = ref(database, 'users/sergey');
+        
+        // === CONFIG ===
+        let API_KEY = localStorage.getItem('openrouter_api_key') || '';
+        let OURA_KEY = localStorage.getItem('oura_api_key') || '';
+        const AI_MODEL = 'anthropic/claude-3-haiku';
+        const VISION_MODEL = 'openai/gpt-4o-mini'; // Для фото
+        const OURA_API_BASE = 'https://api.ouraring.com/v2/usercollection';
+        const CORS_PROXY = 'https://corsproxy.io/?';
+        
+        const BIRTH_DATE = new Date(1977, 3, 29);
+        const PENSION_AGE = 65;
+        const LIFE_GOAL = 90;
+        
+        const today = new Date();
+        const dateKey = today.toISOString().split('T')[0];
+        
+        let userData = { days: {}, stats: {} };
+        let todayData = null;
+        let showElite = false;
+        let chatHistory = [];
+        let mainChatHistory = [];
+        let nutritionChatHistory = [];
+        let currentPhotoBase64 = null;
+        let ouraData = null; // Данные из Oura
+        
+        // Nutrition targets
+        const TARGETS = {
+            calories: 2100,
+            protein: 200,
+            fat: 65,
+            carbs: 135,
+            fiber: 30,
+            salt: 5,
+            caffeine: 150
+        };
+        
+        // === AI SYSTEM PROMPTS ===
+        const AI_SYSTEM = `Ты — персональный AI-ассистент по здоровью.
+
+О ПОЛЬЗОВАТЕЛЕ (Сергей):
+• 48 лет, цель — прожить до 90
+• Гипертония I ст., метаболический синдром
+• Принимает: Амлодипин, Эспиро 5мг
+• Ферритин ~350 — НЕЛЬЗЯ железо в добавках!
+• Медленный метаболизм кофеина
+• Питание: 2100 ккал, белок 200г, жиры 65г, углеводы 135г
+
+ПОРОГИ:
+• АД ≥130 — повышено
+• Кофеин: max 150 мг, до 14:00
+• Соль: max 5г/день
+
+ТИПЫ ДНЯ:
+🚀 Сильный: Oura ≥85 + АД <125/80
+⚡ Нормальный: Oura 70-84 + АД <130/85
+😴 Восстановительный: Oura <70 или АД ≥140/90
+
+Отвечай тепло, конкретно и полезно.`;
+
+        const NUTRITION_AI_SYSTEM = `Ты — AI-нутрициолог для Сергея.
+
+ЦЕЛИ ПИТАНИЯ:
+• 2100 ккал/день
+• Белок: 200г (приоритет!)
+• Жиры: 65г (НЖК ≤17г)
+• Углеводы: 135г
+• Клетчатка: ≥30г
+• Калий: ≥4700мг, Магний: ≥400мг
+• Омега-3: ≥1г
+
+ОГРАНИЧЕНИЯ:
+• Ферритин высокий — НЕ рекомендовать красное мясо часто
+• Кофеин ≤150мг до 14:00
+• Соль ≤5г
+• Лактоза — ограниченно
+
+Отвечай кратко и практично.`;
+
+        const FOOD_ANALYSIS_PROMPT = `Проанализируй еду и верни JSON:
+{
+  "name": "название блюда",
+  "emoji": "подходящий эмодзи",
+  "calories": число,
+  "protein": граммы белка,
+  "fat": граммы жиров,
+  "carbs": граммы углеводов,
+  "fiber": граммы клетчатки,
+  "salt": граммы соли (примерно),
+  "caffeine": мг кофеина (если есть),
+  "comment": "краткий комментарий для Сергея"
+}
+
+Учитывай что порции обычно 150-300г. Отвечай ТОЛЬКО JSON, без markdown.`;
+
+        const habits = {
+            minimum: { title: "🎯 МИНИМУМ", color: "green", items: [
+                { id: 'steps_min', label: '4000 шагов' },
+                { id: 'protein_meal', label: 'Белок ≥40г + овощи' },
+                { id: 'breathing', label: '5 мин дыхания' }
+            ]},
+            normal: { title: "⚡ НОРМАЛЬНЫЙ", color: "blue", items: [
+                { id: 'steps_full', label: '7000–10000 шагов' },
+                { id: 'training', label: 'Тренировка' },
+                { id: 'nutrition_track', label: 'Трекинг питания' },
+                { id: 'breathing_2x', label: '2 сессии дыхания' },
+                { id: 'sleep_time', label: 'Лечь до 23:30' }
+            ]},
+            strong: { title: "🚀 СИЛЬНЫЙ", color: "purple", items: [
+                { id: 'extra_training', label: 'Удлинённая тренировка' },
+                { id: 'full_tracking', label: 'Полный трекинг' }
+            ]}
+        };
+
+        // === UTILITY ===
+        function formatDate(d) { return d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' }); }
+        function formatNum(n) { return n.toLocaleString('ru-RU'); }
+        function formatTime(d) { return new Date(d).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); }
+        
+        function calcDates() {
+            const now = new Date(); now.setHours(0,0,0,0);
+            const pension = new Date(BIRTH_DATE); pension.setFullYear(pension.getFullYear() + PENSION_AGE);
+            const goal = new Date(BIRTH_DATE); goal.setFullYear(goal.getFullYear() + LIFE_GOAL);
+            const ms = 24*60*60*1000;
+            return {
+                lived: Math.floor((now - BIRTH_DATE) / ms),
+                toPension: Math.max(0, Math.floor((pension - now) / ms)),
+                toGoal: Math.max(0, Math.floor((goal - now) / ms))
+            };
+        }
+        
+        function updateSync(s) {
+            document.getElementById('syncStatus').className = 'sync-status ' + s;
+            document.getElementById('syncIcon').textContent = s === 'synced' ? '☁️' : s === 'syncing' ? '🔄' : '📴';
+            document.getElementById('syncText').textContent = s === 'synced' ? 'Синхронизировано' : s === 'syncing' ? 'Сохранение...' : 'Офлайн';
+        }
+        
+        function hideAllScreens() {
+            ['loadingScreen', 'setupScreen', 'settingsScreen', 'morningScreen', 'mainScreen', 'nutritionScreen', 'eveningScreen', 'trendsScreen'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+        }
+        
+        function showScreen(name) {
+            hideAllScreens();
+            document.getElementById(name + 'Screen').classList.remove('hidden');
+            document.getElementById('bottomNav').classList.toggle('hidden', !['main', 'nutrition', 'evening', 'trends'].includes(name));
+            document.getElementById('settingsBtn').classList.toggle('hidden', ['setup', 'settings', 'loading'].includes(name));
+            
+            // Update nav
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.screen === name);
+            });
+        }
+        
+        window.navigateTo = function(screen) {
+            showScreen(screen);
+            if (screen === 'main') updateMain();
+            if (screen === 'nutrition') updateNutrition();
+            if (screen === 'evening') updateEvening();
+            if (screen === 'trends') updateTrends();
+        };
+        
+        // === API KEY ===
+        window.saveApiKey = function() {
+            const key = document.getElementById('apiKeyInput').value.trim();
+            if (!key || !key.startsWith('sk-or-')) { alert('Неверный ключ'); return; }
+            API_KEY = key;
+            localStorage.setItem('openrouter_api_key', key);
+            proceedAfterSetup();
+        };
+        
+        window.skipApiKey = function() { API_KEY = ''; proceedAfterSetup(); };
+        
+        window.showSettings = function() { showScreen('settings'); updateKeyStatus(); };
+        
+        window.closeSettings = function() {
+            todayData?.morning ? (showScreen('main'), updateMain()) : showScreen('morning');
+        };
+        
+        window.updateApiKey = function() {
+            const key = document.getElementById('apiKeyEdit').value.trim();
+            if (!key || key.includes('••••') || !key.startsWith('sk-or-')) { alert('Неверный ключ'); return; }
+            API_KEY = key;
+            localStorage.setItem('openrouter_api_key', key);
+            alert('Обновлено!');
+            updateKeyStatus();
+        };
+        
+        window.deleteApiKey = function() {
+            if (confirm('Удалить ключ?')) {
+                API_KEY = '';
+                localStorage.removeItem('openrouter_api_key');
+                updateKeyStatus();
+            }
+        };
+        
+        function updateKeyStatus() {
+            const valid = !!API_KEY;
+            document.getElementById('keyStatus').className = 'key-status ' + (valid ? 'valid' : 'invalid');
+            document.getElementById('keyStatusIcon').textContent = valid ? '✅' : '❌';
+            document.getElementById('keyStatusText').textContent = valid ? 'Установлен' : 'Не установлен';
+            document.getElementById('apiKeyEdit').value = valid ? '••••' + API_KEY.slice(-8) : '';
+            
+            // Oura key status
+            updateOuraKeyStatus();
+        }
+        
+        function updateOuraKeyStatus() {
+            const valid = !!OURA_KEY;
+            document.getElementById('ouraKeyStatus').className = 'key-status ' + (valid ? 'valid' : 'invalid');
+            document.getElementById('ouraKeyStatusIcon').textContent = valid ? '✅' : '❌';
+            document.getElementById('ouraKeyStatusText').textContent = valid ? 'Подключено' : 'Не подключено';
+            document.getElementById('ouraKeyEdit').value = valid ? '••••' + OURA_KEY.slice(-8) : '';
+        }
+        
+        window.updateOuraKey = async function() {
+            const key = document.getElementById('ouraKeyEdit').value.trim();
+            if (!key || key.includes('••••')) { 
+                alert('Введи Oura Personal Access Token'); 
+                return; 
+            }
+            
+            // Проверяем токен
+            document.getElementById('ouraKeyStatusText').textContent = 'Проверка...';
+            
+            try {
+                const testResult = await testOuraConnection(key);
+                if (testResult) {
+                    OURA_KEY = key;
+                    localStorage.setItem('oura_api_key', key);
+                    alert('✅ Oura подключена!');
+                    updateOuraKeyStatus();
+                    checkOuraAvailable();
+                } else {
+                    alert('❌ Неверный токен. Проверь и попробуй снова.');
+                    updateOuraKeyStatus();
+                }
+            } catch (e) {
+                alert('❌ Ошибка подключения: ' + e.message);
+                updateOuraKeyStatus();
+            }
+        };
+        
+        window.deleteOuraKey = function() {
+            if (confirm('Отключить Oura?')) {
+                OURA_KEY = '';
+                localStorage.removeItem('oura_api_key');
+                updateOuraKeyStatus();
+                document.getElementById('ouraImportSection').classList.add('hidden');
+            }
+        };
+        
+        async function testOuraConnection(token) {
+            try {
+                const response = await fetch(CORS_PROXY + encodeURIComponent(`${OURA_API_BASE}/personal_info`), {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                return response.ok;
+            } catch (e) {
+                console.error('Oura test error:', e);
+                return false;
+            }
+        }
+        
+        function checkOuraAvailable() {
+            const section = document.getElementById('ouraImportSection');
+            if (OURA_KEY) {
+                section.classList.remove('hidden');
+            } else {
+                section.classList.add('hidden');
+            }
+        }
+        
+        window.importFromOura = async function() {
+            if (!OURA_KEY) {
+                alert('Сначала подключи Oura в настройках');
+                return;
+            }
+            
+            const btn = document.getElementById('ouraImportBtn');
+            const status = document.getElementById('ouraImportStatus');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Загрузка...';
+            status.textContent = 'Получение данных...';
+            
+            try {
+                // Получаем данные за сегодня и вчера (на случай если сегодня ещё нет)
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+                const startDate = yesterday.toISOString().split('T')[0];
+                const endDate = dateKey;
+                
+                // Параллельно запрашиваем все данные
+                const [readinessData, sleepData] = await Promise.all([
+                    fetchOuraData('daily_readiness', startDate, endDate),
+                    fetchOuraData('daily_sleep', startDate, endDate)
+                ]);
+                
+                // Берём последние данные
+                const readiness = readinessData?.data?.slice(-1)[0];
+                const sleep = sleepData?.data?.slice(-1)[0];
+                
+                if (!readiness && !sleep) {
+                    status.textContent = 'Нет данных за сегодня';
+                    btn.disabled = false;
+                    btn.textContent = '📥 Импорт';
+                    return;
+                }
+                
+                // Заполняем поля
+                ouraData = { readiness, sleep };
+                
+                if (readiness?.score) {
+                    document.getElementById('ouraReadiness').value = readiness.score;
+                }
+                
+                // Отображаем данные сна
+                if (sleep) {
+                    // Длительность сна
+                    if (sleep.total_sleep_duration) {
+                        const hours = Math.floor(sleep.total_sleep_duration / 3600);
+                        const mins = Math.floor((sleep.total_sleep_duration % 3600) / 60);
+                        document.getElementById('ouraSleepDuration').textContent = `${hours}ч ${mins}м`;
+                        document.getElementById('ouraSleepDuration').className = 'oura-data-value ' + 
+                            (hours >= 7 ? 'good' : hours >= 6 ? 'warning' : 'bad');
+                    }
+                    
+                    // Эффективность сна
+                    if (sleep.efficiency) {
+                        document.getElementById('ouraSleepEfficiency').textContent = `${sleep.efficiency}%`;
+                        document.getElementById('ouraSleepEfficiency').className = 'oura-data-value ' + 
+                            (sleep.efficiency >= 85 ? 'good' : sleep.efficiency >= 75 ? 'warning' : 'bad');
+                    }
+                    
+                    // HRV
+                    if (sleep.average_hrv) {
+                        document.getElementById('ouraHRV').textContent = sleep.average_hrv;
+                        document.getElementById('ouraHRV').className = 'oura-data-value ' + 
+                            (sleep.average_hrv >= 50 ? 'good' : sleep.average_hrv >= 30 ? 'warning' : 'bad');
+                    }
+                    
+                    // Resting HR
+                    if (sleep.lowest_heart_rate) {
+                        document.getElementById('ouraRestingHR').textContent = sleep.lowest_heart_rate;
+                        document.getElementById('ouraRestingHR').className = 'oura-data-value ' + 
+                            (sleep.lowest_heart_rate <= 60 ? 'good' : sleep.lowest_heart_rate <= 70 ? 'warning' : 'bad');
+                    }
+                }
+                
+                // Сохраняем данные Oura в todayData
+                if (!todayData) todayData = { habits: {}, meals: [], breathing: [] };
+                todayData.oura = {
+                    readiness: readiness?.score,
+                    sleep_duration: sleep?.total_sleep_duration,
+                    sleep_efficiency: sleep?.efficiency,
+                    hrv: sleep?.average_hrv,
+                    resting_hr: sleep?.lowest_heart_rate,
+                    imported_at: new Date().toISOString()
+                };
+                
+                status.textContent = '✅ Данные импортированы!';
+                btn.textContent = '✅ Готово';
+                
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.textContent = '📥 Импорт';
+                    status.textContent = 'Подключено';
+                }, 2000);
+                
+            } catch (e) {
+                console.error('Oura import error:', e);
+                status.textContent = '❌ Ошибка: ' + e.message;
+                btn.disabled = false;
+                btn.textContent = '📥 Импорт';
+            }
+        };
+        
+        async function fetchOuraData(endpoint, startDate, endDate) {
+            const url = `${OURA_API_BASE}/${endpoint}?start_date=${startDate}&end_date=${endDate}`;
+            
+            try {
+                const response = await fetch(CORS_PROXY + encodeURIComponent(url), {
+                    headers: { 
+                        'Authorization': `Bearer ${OURA_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (e) {
+                console.error(`Oura ${endpoint} error:`, e);
+                return null;
+            }
+        }
+        
+        function proceedAfterSetup() {
+            todayData?.morning ? (showScreen('main'), updateMain()) : showScreen('morning');
+        }
+        
+        // === FIREBASE ===
+        async function saveData() {
+            updateSync('syncing');
+            try {
+                await set(userRef, userData);
+                updateSync('synced');
+                localStorage.setItem('ltBackup', JSON.stringify(userData));
+            } catch(e) { 
+                updateSync('offline'); 
+                localStorage.setItem('ltBackup', JSON.stringify(userData)); 
+            }
+        }
+        
+        async function loadData() {
+            try {
+                const snap = await get(userRef);
+                if (snap.val()) userData = snap.val();
+                updateSync('synced');
+            } catch(e) {
+                const b = localStorage.getItem('ltBackup');
+                if (b) userData = JSON.parse(b);
+                updateSync('offline');
+            }
+            if (!userData.days) userData.days = {};
+            if (!userData.stats) userData.stats = {};
+            todayData = userData.days[dateKey] || null;
+        }
+        
+        // === AI ===
+        async function callAI(messages, systemPrompt = AI_SYSTEM) {
+            if (!API_KEY) return 'AI недоступен. Добавь ключ ⚙️';
+            
+            const statusEl = document.getElementById('chatStatus');
+            if (statusEl) statusEl.textContent = 'печатает...';
+            
+            try {
+                const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}`,
+                        'HTTP-Referer': location.origin,
+                        'X-Title': 'Life Tracker AI'
+                    },
+                    body: JSON.stringify({
+                        model: AI_MODEL,
+                        messages: [{ role: 'system', content: systemPrompt }, ...messages],
+                        max_tokens: 600,
+                        temperature: 0.7
+                    })
+                });
+                const data = await res.json();
+                if (statusEl) statusEl.textContent = 'онлайн';
+                if (data.error) return 'Ошибка: ' + (data.error.message || 'Проверь ключ');
+                return data.choices[0].message.content;
+            } catch(e) { 
+                if (statusEl) statusEl.textContent = 'офлайн';
+                return 'Ошибка сети'; 
+            }
+        }
+        
+        async function callVisionAI(imageBase64, prompt) {
+            if (!API_KEY) return null;
+            
+            try {
+                const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}`,
+                        'HTTP-Referer': location.origin,
+                        'X-Title': 'Life Tracker AI'
+                    },
+                    body: JSON.stringify({
+                        model: VISION_MODEL,
+                        messages: [{
+                            role: 'user',
+                            content: [
+                                { type: 'text', text: prompt },
+                                { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}` } }
+                            ]
+                        }],
+                        max_tokens: 500
+                    })
+                });
+                const data = await res.json();
+                if (data.error) return null;
+                return data.choices[0].message.content;
+            } catch(e) { 
+                return null; 
+            }
+        }
+        
+        function addMessage(container, role, text) {
+            const div = document.createElement('div');
+            div.className = 'message ' + role;
+            div.innerHTML = `
+                <div class="message-avatar">${role === 'ai' ? '🤖' : '👤'}</div>
+                <div class="message-bubble">${text.replace(/\n/g, '<br>')}</div>
+            `;
+            document.getElementById(container).appendChild(div);
+            document.getElementById(container).scrollTop = 99999;
+        }
+        
+        function addTypingIndicator(container) {
+            const div = document.createElement('div');
+            div.className = 'message ai';
+            div.id = 'typingIndicator';
+            div.innerHTML = `<div class="message-avatar">🤖</div><div class="message-bubble"><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>`;
+            document.getElementById(container).appendChild(div);
+            document.getElementById(container).scrollTop = 99999;
+        }
+        
+        function removeTypingIndicator() {
+            document.getElementById('typingIndicator')?.remove();
+        }
+        
+        // === MORNING ===
+        window.toggleEliteHRV = function() {
+            showElite = !showElite;
+            document.getElementById('eliteToggle').classList.toggle('active', showElite);
+            document.getElementById('eliteFields').classList.toggle('hidden', !showElite);
+        };
+        
+        window.analyzeMorning = async function() {
+            const oura = parseInt(document.getElementById('ouraReadiness').value);
+            const sys = parseInt(document.getElementById('bpSystolic').value);
+            const dia = parseInt(document.getElementById('bpDiastolic').value);
+            const pulse = parseInt(document.getElementById('pulse').value);
+            
+            if (!oura || !sys || !dia || !pulse) { alert('Заполни все поля'); return; }
+            
+            const elite = showElite ? parseInt(document.getElementById('eliteScore').value) || null : null;
+            
+            document.getElementById('analyzeBtn').classList.add('hidden');
+            document.getElementById('chatContainer').classList.remove('hidden');
+            addTypingIndicator('chatMessages');
+            
+            const dayOfWeek = today.toLocaleDateString('ru-RU', { weekday: 'long' });
+            let aiRequest = `Сегодня ${dayOfWeek}. Показатели:\n• Oura: ${oura}/100\n• АД: ${sys}/${dia}\n• Пульс: ${pulse}`;
+            if (elite) aiRequest += `\n• EliteHRV: ${elite}/10`;
+            aiRequest += `\n\nОпредели тип дня, дай оценку и 3 рекомендации.`;
+            
+            chatHistory = [{ role: 'user', content: aiRequest }];
+            const response = await callAI(chatHistory);
+            removeTypingIndicator();
+            
+            chatHistory.push({ role: 'assistant', content: response });
+            addMessage('chatMessages', 'ai', response);
+            
+            let dayType = 'normal';
+            if (response.includes('Сильный') || response.includes('сильный') || response.includes('🚀')) dayType = 'strong';
+            else if (response.includes('Восстановительный') || response.includes('восстановительн') || response.includes('😴')) dayType = 'recovery';
+            else if (oura >= 85 && sys < 125) dayType = 'strong';
+            else if (oura < 70 || sys >= 140) dayType = 'recovery';
+            
+            document.getElementById('dayBadge').className = 'day-badge ' + dayType;
+            document.getElementById('dayBadge').innerHTML = dayType === 'strong' ? '🚀 Сильный' : dayType === 'normal' ? '⚡ Нормальный' : '😴 Восстановление';
+            
+            if (!userData.days[dateKey]) userData.days[dateKey] = { habits: {}, meals: [] };
+            userData.days[dateKey].morning = { ts: new Date().toISOString(), oura, bp_sys: sys, bp_dia: dia, pulse, elite, day_type: dayType, ai: response };
+            todayData = userData.days[dateKey];
+            await saveData();
+            
+            document.getElementById('startDayBtn').classList.remove('hidden');
+        };
+        
+        window.askQuestion = async function(q) {
+            chatHistory.push({ role: 'user', content: q });
+            addMessage('chatMessages', 'user', q);
+            addTypingIndicator('chatMessages');
+            const response = await callAI(chatHistory);
+            removeTypingIndicator();
+            chatHistory.push({ role: 'assistant', content: response });
+            addMessage('chatMessages', 'ai', response);
+        };
+        
+        window.sendChatMessage = async function() {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            input.value = '';
+            await askQuestion(msg);
+        };
+        
+        window.handleChatKeypress = function(e) { if (e.key === 'Enter') sendChatMessage(); };
+        
+        window.startDay = function() { showScreen('main'); updateMain(); };
+        
+        // === MAIN SCREEN ===
+        function updateMain() {
+            document.getElementById('mainDate').textContent = formatDate(today);
+            
+            const dt = todayData?.morning?.day_type || 'normal';
+            document.getElementById('mainBadge').className = 'day-badge ' + dt;
+            document.getElementById('mainBadge').innerHTML = dt === 'strong' ? '🚀' : dt === 'normal' ? '⚡' : '😴';
+            
+            if (todayData?.morning) {
+                const m = todayData.morning;
+                document.getElementById('sumOura').textContent = m.oura;
+                document.getElementById('sumOura').className = 'morning-data-value ' + (m.oura >= 85 ? 'good' : m.oura >= 70 ? '' : 'warning');
+                document.getElementById('sumBP').textContent = `${m.bp_sys}/${m.bp_dia}`;
+                document.getElementById('sumBP').className = 'morning-data-value ' + (m.bp_sys < 130 ? 'good' : m.bp_sys < 140 ? 'warning' : 'bad');
+                document.getElementById('sumPulse').textContent = `${m.pulse} уд/мин`;
+            }
+            
+            const d = calcDates();
+            document.getElementById('daysLived').textContent = formatNum(d.lived);
+            document.getElementById('daysToPension').textContent = formatNum(d.toPension);
+            document.getElementById('daysToGoal').textContent = formatNum(d.toGoal);
+            
+            updateStatus();
+            renderHabits();
+            
+            if (mainChatHistory.length === 0 && todayData?.morning) {
+                const m = todayData.morning;
+                mainChatHistory = [{ role: 'system', content: `Контекст: ${m.day_type} день, Oura ${m.oura}, АД ${m.bp_sys}/${m.bp_dia}` }];
+            }
+        }
+        
+        function updateStatus() {
+            const min = ['steps_min', 'protein_meal', 'breathing'];
+            const ch = todayData?.habits || {};
+            const done = min.filter(id => ch[id]).length;
+            const complete = done === min.length;
+            
+            document.getElementById('systemStatus').className = 'system-status ' + (complete ? 'complete' : 'incomplete');
+            document.getElementById('systemIcon').textContent = complete ? '✅' : '🔄';
+            document.getElementById('systemTitle').textContent = complete ? 'Ты в системе!' : 'Выполни минимум';
+            document.getElementById('systemSubtitle').textContent = complete ? 'День засчитан!' : `Осталось: ${min.length - done} из 3`;
+            document.getElementById('streakBadge').textContent = '🔥 ' + (userData.stats.current_streak || 0);
+        }
+        
+        function renderHabits() {
+            const c = document.getElementById('habitsContainer');
+            c.innerHTML = '';
+            const dt = todayData?.morning?.day_type || 'normal';
+            const ch = todayData?.habits || {};
+            
+            Object.entries(habits).forEach(([key, sec]) => {
+                const active = key === 'minimum' || (key === 'normal' && dt !== 'recovery') || (key === 'strong' && dt === 'strong');
+                const cnt = sec.items.filter(i => ch[i.id]).length;
+                
+                const div = document.createElement('div');
+                div.className = `habit-section ${sec.color} ${active ? '' : 'inactive'}`;
+                div.innerHTML = `
+                    <div class="habit-header">
+                        <span class="habit-title ${sec.color}">${sec.title}</span>
+                        <span class="habit-counter ${sec.color}">${cnt}/${sec.items.length}</span>
+                    </div>
+                    ${sec.items.map(i => `
+                        <div class="habit-item ${ch[i.id] ? 'checked' : ''} ${sec.color}" data-id="${i.id}">
+                            <div class="checkbox"><span class="checkbox-mark">✓</span></div>
+                            <span class="habit-item-label">${i.label}</span>
+                        </div>
+                    `).join('')}
+                `;
+                c.appendChild(div);
+            });
+            
+            c.querySelectorAll('.habit-item').forEach(el => {
+                el.addEventListener('click', () => toggleHabit(el.dataset.id));
+            });
+        }
+        
+        async function toggleHabit(id) {
+            if (!todayData) todayData = { habits: {}, meals: [] };
+            if (!todayData.habits) todayData.habits = {};
+            todayData.habits[id] = !todayData.habits[id];
+            userData.days[dateKey] = todayData;
+            await saveData();
+            updateStatus();
+            renderHabits();
+        }
+        
+        window.toggleMainChat = function() {
+            document.getElementById('mainChatBody').classList.toggle('hidden');
+            document.getElementById('chatToggleIcon').textContent = document.getElementById('mainChatBody').classList.contains('hidden') ? '▼' : '▲';
+        };
+        
+        window.askMainQuestion = async function(q) {
+            document.getElementById('mainChatBody').classList.remove('hidden');
+            document.getElementById('chatToggleIcon').textContent = '▲';
+            mainChatHistory.push({ role: 'user', content: q });
+            addMessage('mainChatMessages', 'user', q);
+            addTypingIndicator('mainChatMessages');
+            const response = await callAI(mainChatHistory);
+            removeTypingIndicator();
+            mainChatHistory.push({ role: 'assistant', content: response });
+            addMessage('mainChatMessages', 'ai', response);
+        };
+        
+        window.sendMainChatMessage = async function() {
+            const input = document.getElementById('mainChatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            input.value = '';
+            await askMainQuestion(msg);
+        };
+        
+        window.handleMainChatKeypress = function(e) { if (e.key === 'Enter') sendMainChatMessage(); };
+        
+        // === NUTRITION ===
+        function getTotals() {
+            const meals = todayData?.meals || [];
+            return meals.reduce((acc, m) => ({
+                calories: acc.calories + (m.calories || 0),
+                protein: acc.protein + (m.protein || 0),
+                fat: acc.fat + (m.fat || 0),
+                carbs: acc.carbs + (m.carbs || 0),
+                fiber: acc.fiber + (m.fiber || 0),
+                salt: acc.salt + (m.salt || 0),
+                caffeine: acc.caffeine + (m.caffeine || 0)
+            }), { calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0, salt: 0, caffeine: 0 });
+        }
+        
+        function updateNutrition() {
+            document.getElementById('nutritionDate').textContent = formatDate(today);
+            
+            const totals = getTotals();
+            
+            // Update summary cards
+            document.getElementById('caloriesValue').textContent = totals.calories;
+            document.getElementById('proteinValue').textContent = totals.protein + 'г';
+            document.getElementById('fatValue').textContent = totals.fat + 'г';
+            document.getElementById('carbsValue').textContent = totals.carbs + 'г';
+            document.getElementById('fiberValue').textContent = totals.fiber + 'г';
+            
+            // Progress bars
+            updateProgressBar('calories', totals.calories, TARGETS.calories);
+            updateProgressBar('protein', totals.protein, TARGETS.protein);
+            updateProgressBar('fat', totals.fat, TARGETS.fat);
+            updateProgressBar('carbs', totals.carbs, TARGETS.carbs);
+            updateProgressBar('fiber', totals.fiber, TARGETS.fiber);
+            
+            // Remaining
+            const remaining = TARGETS.calories - totals.calories;
+            document.getElementById('caloriesRemaining').textContent = remaining > 0 ? `Осталось: ${remaining} ккал` : `Превышено на ${-remaining} ккал`;
+            
+            // Table
+            document.getElementById('tableCalories').textContent = totals.calories;
+            document.getElementById('tableProtein').textContent = totals.protein + 'г';
+            document.getElementById('tableFat').textContent = totals.fat + 'г';
+            document.getElementById('tableCarbs').textContent = totals.carbs + 'г';
+            document.getElementById('tableFiber').textContent = totals.fiber + 'г';
+            document.getElementById('tableSalt').textContent = totals.salt.toFixed(1) + 'г';
+            document.getElementById('tableCaffeine').textContent = totals.caffeine + 'мг';
+            
+            // Color coding for table
+            setTableColor('tableCalories', totals.calories, TARGETS.calories);
+            setTableColor('tableProtein', totals.protein, TARGETS.protein);
+            setTableColor('tableFat', totals.fat, TARGETS.fat);
+            setTableColor('tableCarbs', totals.carbs, TARGETS.carbs);
+            setTableColor('tableFiber', totals.fiber, TARGETS.fiber, true);
+            setTableColor('tableSalt', totals.salt, TARGETS.salt);
+            setTableColor('tableCaffeine', totals.caffeine, TARGETS.caffeine);
+            
+            // Render food log
+            renderFoodLog();
+        }
+        
+        function updateProgressBar(id, value, target) {
+            const percent = Math.min((value / target) * 100, 100);
+            const bar = document.getElementById(id + 'Bar');
+            bar.style.width = percent + '%';
+            bar.className = 'nutrition-progress-bar ' + (value > target * 1.1 ? 'over' : value > target * 0.9 ? 'warning' : 'good');
+        }
+        
+        function setTableColor(id, value, target, inverse = false) {
+            const el = document.getElementById(id);
+            el.className = 'nutrition-table-fact';
+            if (inverse) {
+                if (value >= target) el.classList.add('good');
+                else if (value >= target * 0.7) el.classList.add('warning');
+            } else {
+                if (value > target * 1.1) el.classList.add('over');
+                else if (value > target * 0.9) el.classList.add('warning');
+                else el.classList.add('good');
+            }
+        }
+        
+        function renderFoodLog() {
+            const container = document.getElementById('foodLogContainer');
+            const meals = todayData?.meals || [];
+            
+            if (meals.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🍽️</div><div class="empty-state-text">Пока ничего не добавлено</div></div>';
+                return;
+            }
+            
+            container.innerHTML = meals.map((m, i) => `
+                <div class="food-log-item">
+                    <div class="food-log-icon">${m.emoji || '🍴'}</div>
+                    <div class="food-log-info">
+                        <div class="food-log-name">${m.name}</div>
+                        <div class="food-log-details">Б${m.protein}г Ж${m.fat}г У${m.carbs}г</div>
+                        <div class="food-log-time">${formatTime(m.time)}</div>
+                    </div>
+                    <div class="food-log-calories">${m.calories}</div>
+                    <button class="food-log-delete" onclick="deleteMeal(${i})">✕</button>
+                </div>
+            `).join('');
+        }
+        
+        window.deleteMeal = async function(index) {
+            if (!confirm('Удалить?')) return;
+            todayData.meals.splice(index, 1);
+            userData.days[dateKey] = todayData;
+            await saveData();
+            updateNutrition();
+        };
+        
+        // Photo handling
+        window.handleFoodPhoto = async function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const base64 = e.target.result.split(',')[1];
+                currentPhotoBase64 = base64;
+                
+                document.getElementById('foodPhotoPreview').src = e.target.result;
+                document.getElementById('foodPhotoPreview').classList.remove('hidden');
+                document.getElementById('photoUploadArea').classList.add('hidden');
+                
+                // Analyze
+                await analyzeFoodPhoto(base64);
+            };
+            reader.readAsDataURL(file);
+        };
+        
+        async function analyzeFoodPhoto(base64) {
+            document.getElementById('foodAnalyzing').classList.remove('hidden');
+            
+            const response = await callVisionAI(base64, FOOD_ANALYSIS_PROMPT);
+            
+            document.getElementById('foodAnalyzing').classList.add('hidden');
+            document.getElementById('foodPhotoPreview').classList.add('hidden');
+            document.getElementById('photoUploadArea').classList.remove('hidden');
+            
+            if (!response) {
+                alert('Не удалось распознать. Попробуй описать текстом.');
+                return;
+            }
+            
+            try {
+                // Clean response
+                let json = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                const food = JSON.parse(json);
+                await addMeal(food);
+            } catch(e) {
+                console.error('Parse error:', e, response);
+                alert('Ошибка распознавания. Попробуй описать текстом.');
+            }
+        }
+        
+        window.analyzeFoodText = async function() {
+            const input = document.getElementById('foodTextInput');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            document.getElementById('addFoodBtn').disabled = true;
+            document.getElementById('foodAnalyzing').classList.remove('hidden');
+            
+            const response = await callAI([{ role: 'user', content: text }], FOOD_ANALYSIS_PROMPT);
+            
+            document.getElementById('addFoodBtn').disabled = false;
+            document.getElementById('foodAnalyzing').classList.add('hidden');
+            
+            try {
+                let json = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                const food = JSON.parse(json);
+                await addMeal(food);
+                input.value = '';
+            } catch(e) {
+                console.error('Parse error:', e, response);
+                alert('Не удалось распознать. Попробуй по-другому.');
+            }
+        };
+        
+        window.handleFoodKeypress = function(e) { if (e.key === 'Enter') analyzeFoodText(); };
+        
+        async function addMeal(food) {
+            if (!todayData) todayData = { habits: {}, meals: [] };
+            if (!todayData.meals) todayData.meals = [];
+            
+            todayData.meals.push({
+                ...food,
+                time: new Date().toISOString()
+            });
+            
+            userData.days[dateKey] = todayData;
+            await saveData();
+            updateNutrition();
+            
+            // Show AI comment
+            if (food.comment) {
+                alert('🤖 ' + food.comment);
+            }
+        }
+        
+        // Nutrition chat
+        window.toggleNutritionChat = function() {
+            document.getElementById('nutritionChatBody').classList.toggle('hidden');
+            document.getElementById('nutritionChatToggle').textContent = document.getElementById('nutritionChatBody').classList.contains('hidden') ? '▼' : '▲';
+        };
+        
+        window.askNutritionQuestion = async function(q) {
+            document.getElementById('nutritionChatBody').classList.remove('hidden');
+            document.getElementById('nutritionChatToggle').textContent = '▲';
+            
+            const totals = getTotals();
+            const context = `Съедено: ${totals.calories} ккал, Б${totals.protein}г, Ж${totals.fat}г, У${totals.carbs}г, клетчатка ${totals.fiber}г. Осталось: ${TARGETS.calories - totals.calories} ккал, белка нужно ещё ${TARGETS.protein - totals.protein}г.`;
+            
+            nutritionChatHistory.push({ role: 'user', content: context + '\n\n' + q });
+            addMessage('nutritionChatMessages', 'user', q);
+            addTypingIndicator('nutritionChatMessages');
+            
+            const response = await callAI(nutritionChatHistory, NUTRITION_AI_SYSTEM);
+            removeTypingIndicator();
+            
+            nutritionChatHistory.push({ role: 'assistant', content: response });
+            addMessage('nutritionChatMessages', 'ai', response);
+        };
+        
+        window.sendNutritionChatMessage = async function() {
+            const input = document.getElementById('nutritionChatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            input.value = '';
+            await askNutritionQuestion(msg);
+        };
+        
+        window.handleNutritionChatKeypress = function(e) { if (e.key === 'Enter') sendNutritionChatMessage(); };
+        
+        // === EVENING ===
+        let eveningChatHistory = [];
+        
+        const EVENING_AI_SYSTEM = `Ты — AI-ассистент для вечернего анализа дня.
+
+О ПОЛЬЗОВАТЕЛЕ (Сергей):
+• 48 лет, гипертония I ст., метаболический синдром
+• Принимает: Амлодипин, Эспиро 5мг
+• Цели: 2100 ккал, белок 200г, дожить до 90
+• Использует резонансное дыхание (6 вд/мин) и 4-7-8 для релаксации
+• RMSSD 40-60 мс — хороший показатель для его возраста
+
+ФОРМАТ ВЕЧЕРНЕГО АНАЛИЗА:
+1. Оценка дня (что получилось/не получилось)
+2. Анализ АД (утро vs вечер, динамика)
+3. Оценка дыхательных практик (если были)
+4. Анализ питания (калории, белок, что упущено)
+5. 2-3 рекомендации на завтра
+6. Совет для хорошего сна
+
+Отвечай тепло, конкретно, с эмодзи.`;
+
+        function updateEvening() {
+            document.getElementById('eveningDate').textContent = formatDate(today);
+            
+            // Morning BP
+            if (todayData?.morning) {
+                const m = todayData.morning;
+                document.getElementById('morningBpValue').textContent = `${m.bp_sys}/${m.bp_dia}`;
+            }
+            
+            // Evening BP
+            if (todayData?.evening?.bp_sys) {
+                const e = todayData.evening;
+                document.getElementById('eveningBpValue').textContent = `${e.bp_sys}/${e.bp_dia}`;
+                document.getElementById('eveningBpSystolic').value = e.bp_sys;
+                document.getElementById('eveningBpDiastolic').value = e.bp_dia;
+                document.getElementById('eveningPulse').value = e.pulse;
+                updateBpComparison();
+            }
+            
+            // Day summary
+            if (todayData?.morning) {
+                const dt = todayData.morning.day_type;
+                const el = document.getElementById('summaryDayType');
+                el.textContent = dt === 'strong' ? '🚀 Сильный' : dt === 'normal' ? '⚡ Нормальный' : '😴 Восстановление';
+            }
+            
+            // Habits
+            const min = ['steps_min', 'protein_meal', 'breathing'];
+            const ch = todayData?.habits || {};
+            const done = min.filter(id => ch[id]).length;
+            const habitsEl = document.getElementById('summaryHabits');
+            habitsEl.textContent = `${done}/3 минимум`;
+            habitsEl.className = 'day-summary-value ' + (done === 3 ? 'good' : done >= 2 ? 'warning' : 'bad');
+            
+            // Nutrition
+            const totals = getTotals();
+            const calEl = document.getElementById('summaryCalories');
+            calEl.textContent = `${totals.calories} / 2100`;
+            calEl.className = 'day-summary-value ' + (totals.calories > 2300 ? 'bad' : totals.calories > 2100 ? 'warning' : 'good');
+            
+            const protEl = document.getElementById('summaryProtein');
+            protEl.textContent = `${totals.protein}г / 200г`;
+            protEl.className = 'day-summary-value ' + (totals.protein >= 180 ? 'good' : totals.protein >= 150 ? 'warning' : 'bad');
+            
+            // Breathing summary
+            const sessions = todayData?.breathing || [];
+            const breathEl = document.getElementById('summaryBreathing');
+            if (sessions.length > 0) {
+                const totalMin = sessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+                breathEl.textContent = `${sessions.length} сессий, ${totalMin} мин`;
+                breathEl.className = 'day-summary-value good';
+            } else {
+                breathEl.textContent = 'Нет сессий';
+                breathEl.className = 'day-summary-value warning';
+            }
+            
+            // Render breathing log
+            renderBreathingLog();
+            
+            // Rating
+            if (todayData?.evening?.rating) {
+                updateRatingUI(todayData.evening.rating);
+            }
+            
+            // Sleep checklist
+            updateSleepChecklist();
+        }
+        
+        function updateBpComparison() {
+            if (!todayData?.morning || !todayData?.evening?.bp_sys) return;
+            
+            const m = todayData.morning;
+            const e = todayData.evening;
+            const diff = e.bp_sys - m.bp_sys;
+            
+            const badge = document.getElementById('bpChangeValue');
+            if (diff < -5) {
+                badge.textContent = `↓ ${Math.abs(diff)} мм — отлично!`;
+                badge.className = 'bp-change-badge good';
+            } else if (diff <= 5) {
+                badge.textContent = `≈ стабильно`;
+                badge.className = 'bp-change-badge warning';
+            } else {
+                badge.textContent = `↑ ${diff} мм — повышение`;
+                badge.className = 'bp-change-badge bad';
+            }
+        }
+        
+        window.saveEveningBP = async function() {
+            const sys = parseInt(document.getElementById('eveningBpSystolic').value);
+            const dia = parseInt(document.getElementById('eveningBpDiastolic').value);
+            const pulse = parseInt(document.getElementById('eveningPulse').value);
+            
+            if (!sys || !dia || !pulse) { alert('Заполни все поля'); return; }
+            
+            if (!todayData) todayData = { habits: {}, meals: [], breathing: [] };
+            if (!todayData.evening) todayData.evening = {};
+            
+            todayData.evening.bp_sys = sys;
+            todayData.evening.bp_dia = dia;
+            todayData.evening.pulse = pulse;
+            todayData.evening.bp_time = new Date().toISOString();
+            
+            userData.days[dateKey] = todayData;
+            await saveData();
+            
+            document.getElementById('eveningBpValue').textContent = `${sys}/${dia}`;
+            updateBpComparison();
+            
+            alert('АД сохранено!');
+        };
+        
+        // Breathing sessions
+        const BREATHING_TYPES = {
+            'resonance': { name: 'Резонансное', emoji: '🌊', desc: '6 вд/мин' },
+            '478': { name: '4-7-8', emoji: '😴', desc: 'релаксация' },
+            'box': { name: 'Квадратное', emoji: '⬜', desc: '4-4-4-4' },
+            'other': { name: 'Другое', emoji: '🌬️', desc: '' }
+        };
+        
+        window.addBreathingSession = async function() {
+            const type = document.getElementById('breathingType').value;
+            const duration = parseInt(document.getElementById('breathingDuration').value);
+            const rmssd = parseInt(document.getElementById('breathingRmssd').value) || null;
+            
+            if (!duration) { alert('Укажи длительность'); return; }
+            
+            if (!todayData) todayData = { habits: {}, meals: [], breathing: [] };
+            if (!todayData.breathing) todayData.breathing = [];
+            
+            todayData.breathing.push({
+                type,
+                duration,
+                rmssd,
+                time: new Date().toISOString()
+            });
+            
+            userData.days[dateKey] = todayData;
+            await saveData();
+            
+            // Clear inputs
+            document.getElementById('breathingDuration').value = '';
+            document.getElementById('breathingRmssd').value = '';
+            
+            renderBreathingLog();
+            updateEvening();
+        };
+        
+        function renderBreathingLog() {
+            const container = document.getElementById('breathingLogContainer');
+            const sessions = todayData?.breathing || [];
+            
+            if (sessions.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #64748b; padding: 12px;">Нет сессий сегодня</div>';
+                return;
+            }
+            
+            container.innerHTML = sessions.map((s, i) => {
+                const t = BREATHING_TYPES[s.type] || BREATHING_TYPES.other;
+                return `
+                    <div class="breathing-log-item">
+                        <div class="breathing-log-icon">${t.emoji}</div>
+                        <div class="breathing-log-info">
+                            <div class="breathing-log-type">${t.name}</div>
+                            <div class="breathing-log-details">${s.duration} мин${s.rmssd ? ` • RMSSD: ${s.rmssd}` : ''}</div>
+                            <div class="breathing-log-time">${formatTime(s.time)}</div>
+                        </div>
+                        <button class="breathing-log-delete" onclick="deleteBreathingSession(${i})">✕</button>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        window.deleteBreathingSession = async function(index) {
+            if (!confirm('Удалить сессию?')) return;
+            todayData.breathing.splice(index, 1);
+            userData.days[dateKey] = todayData;
+            await saveData();
+            renderBreathingLog();
+            updateEvening();
+        };
+        
+        // Day rating
+        window.rateDay = async function(rating) {
+            if (!todayData) todayData = { habits: {}, meals: [], breathing: [] };
+            if (!todayData.evening) todayData.evening = {};
+            
+            todayData.evening.rating = rating;
+            userData.days[dateKey] = todayData;
+            await saveData();
+            
+            updateRatingUI(rating);
+        };
+        
+        function updateRatingUI(rating) {
+            const labels = ['', 'Тяжёлый день 😫', 'Не очень 😕', 'Нормально 😐', 'Хорошо! 🙂', 'Отличный день! 😊'];
+            document.getElementById('dayRatingLabel').textContent = labels[rating];
+            
+            document.querySelectorAll('.rating-btn').forEach(btn => {
+                btn.classList.toggle('selected', parseInt(btn.dataset.rating) === rating);
+            });
+        }
+        
+        // Sleep checklist
+        function updateSleepChecklist() {
+            const items = todayData?.evening?.sleep || {};
+            document.querySelectorAll('.sleep-item').forEach(el => {
+                el.classList.toggle('checked', !!items[el.dataset.id]);
+            });
+        }
+        
+        window.toggleSleepItem = async function(id) {
+            if (!todayData) todayData = { habits: {}, meals: [], breathing: [] };
+            if (!todayData.evening) todayData.evening = {};
+            if (!todayData.evening.sleep) todayData.evening.sleep = {};
+            
+            todayData.evening.sleep[id] = !todayData.evening.sleep[id];
+            userData.days[dateKey] = todayData;
+            await saveData();
+            
+            updateSleepChecklist();
+        };
+        
+        // Evening AI analysis
+        window.getEveningAnalysis = async function() {
+            document.getElementById('getEveningAnalysis').disabled = true;
+            document.getElementById('eveningAnalysisResult').classList.remove('hidden');
+            addTypingIndicator('eveningChatMessages');
+            
+            // Build context
+            const m = todayData?.morning || {};
+            const e = todayData?.evening || {};
+            const totals = getTotals();
+            const sessions = todayData?.breathing || [];
+            const habits = todayData?.habits || {};
+            const minDone = ['steps_min', 'protein_meal', 'breathing'].filter(id => habits[id]).length;
+            
+            let breathingInfo = 'Нет сессий';
+            if (sessions.length > 0) {
+                breathingInfo = sessions.map(s => {
+                    const t = BREATHING_TYPES[s.type];
+                    return `${t.name} ${s.duration}мин${s.rmssd ? ` (RMSSD ${s.rmssd})` : ''}`;
+                }).join(', ');
+            }
+            
+            const request = `Проанализируй мой день:
+
+УТРО:
+• Oura Readiness: ${m.oura || '?'}/100
+• АД утром: ${m.bp_sys || '?'}/${m.bp_dia || '?'}
+• Тип дня: ${m.day_type || '?'}
+
+ВЕЧЕР:
+• АД вечером: ${e.bp_sys || 'не измерено'}/${e.bp_dia || ''}
+${e.bp_sys && m.bp_sys ? `• Изменение: ${e.bp_sys - m.bp_sys > 0 ? '+' : ''}${e.bp_sys - m.bp_sys} мм` : ''}
+
+ПИТАНИЕ:
+• Калории: ${totals.calories}/2100
+• Белок: ${totals.protein}г/200г
+• Клетчатка: ${totals.fiber}г/30г
+
+ДЫХАНИЕ:
+• ${breathingInfo}
+
+ПРИВЫЧКИ:
+• Минимум выполнен: ${minDone}/3
+
+Дай полный анализ дня и рекомендации на завтра.`;
+            
+            eveningChatHistory = [{ role: 'user', content: request }];
+            const response = await callAI(eveningChatHistory, EVENING_AI_SYSTEM);
+            removeTypingIndicator();
+            
+            eveningChatHistory.push({ role: 'assistant', content: response });
+            addMessage('eveningChatMessages', 'ai', response);
+            
+            document.getElementById('getEveningAnalysis').disabled = false;
+        };
+        
+        window.askEveningQuestion = async function(q) {
+            eveningChatHistory.push({ role: 'user', content: q });
+            addMessage('eveningChatMessages', 'user', q);
+            addTypingIndicator('eveningChatMessages');
+            
+            const response = await callAI(eveningChatHistory, EVENING_AI_SYSTEM);
+            removeTypingIndicator();
+            
+            eveningChatHistory.push({ role: 'assistant', content: response });
+            addMessage('eveningChatMessages', 'ai', response);
+        };
+        
+        window.sendEveningChatMessage = async function() {
+            const input = document.getElementById('eveningChatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            input.value = '';
+            await askEveningQuestion(msg);
+        };
+        
+        window.handleEveningChatKeypress = function(e) { if (e.key === 'Enter') sendEveningChatMessage(); };
+        
+        // === TRENDS ===
+        let trendsPeriod = 7;
+        
+        window.setPeriod = function(days) {
+            trendsPeriod = days;
+            document.querySelectorAll('.tabs .tab').forEach(tab => {
+                tab.classList.toggle('active', parseInt(tab.dataset.period) === days);
+            });
+            updateTrends();
+        };
+        
+        function getHistoricalData(days) {
+            const data = [];
+            const now = new Date();
+            
+            for (let i = days - 1; i >= 0; i--) {
+                const d = new Date(now);
+                d.setDate(d.getDate() - i);
+                const key = d.toISOString().split('T')[0];
+                const dayData = userData.days?.[key] || null;
+                
+                data.push({
+                    date: key,
+                    label: d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }),
+                    shortLabel: d.getDate().toString(),
+                    morning: dayData?.morning || null,
+                    evening: dayData?.evening || null,
+                    meals: dayData?.meals || [],
+                    habits: dayData?.habits || {},
+                    breathing: dayData?.breathing || []
+                });
+            }
+            
+            return data;
+        }
+        
+        function drawLineChart(canvasId, datasets, options = {}) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const width = canvas.parentElement.clientWidth;
+            const height = parseInt(canvas.getAttribute('height'));
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            const padding = { top: 20, right: 15, bottom: 30, left: 40 };
+            const chartWidth = width - padding.left - padding.right;
+            const chartHeight = height - padding.top - padding.bottom;
+            
+            // Clear
+            ctx.clearRect(0, 0, width, height);
+            
+            // Find min/max
+            let allValues = [];
+            datasets.forEach(ds => {
+                ds.data.forEach(v => { if (v !== null) allValues.push(v); });
+            });
+            
+            if (allValues.length === 0) {
+                ctx.fillStyle = '#64748b';
+                ctx.font = '14px -apple-system, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Нет данных', width / 2, height / 2);
+                return;
+            }
+            
+            const minVal = options.minY ?? Math.min(...allValues) * 0.9;
+            const maxVal = options.maxY ?? Math.max(...allValues) * 1.1;
+            const range = maxVal - minVal || 1;
+            
+            // Draw grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = padding.top + (chartHeight / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(width - padding.right, y);
+                ctx.stroke();
+                
+                // Y labels
+                const val = Math.round(maxVal - (range / 4) * i);
+                ctx.fillStyle = '#64748b';
+                ctx.font = '10px -apple-system, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(val.toString(), padding.left - 8, y + 3);
+            }
+            
+            // X labels
+            const points = datasets[0].data.length;
+            const stepX = chartWidth / (points - 1 || 1);
+            
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            
+            for (let i = 0; i < points; i++) {
+                if (points <= 7 || i % Math.ceil(points / 7) === 0 || i === points - 1) {
+                    const x = padding.left + stepX * i;
+                    ctx.fillText(datasets[0].labels?.[i] || '', x, height - 8);
+                }
+            }
+            
+            // Draw lines
+            datasets.forEach(ds => {
+                ctx.strokeStyle = ds.color;
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                ctx.beginPath();
+                let started = false;
+                
+                ds.data.forEach((val, i) => {
+                    if (val === null) return;
+                    
+                    const x = padding.left + stepX * i;
+                    const y = padding.top + chartHeight - ((val - minVal) / range) * chartHeight;
+                    
+                    if (!started) {
+                        ctx.moveTo(x, y);
+                        started = true;
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                
+                ctx.stroke();
+                
+                // Draw points
+                ds.data.forEach((val, i) => {
+                    if (val === null) return;
+                    
+                    const x = padding.left + stepX * i;
+                    const y = padding.top + chartHeight - ((val - minVal) / range) * chartHeight;
+                    
+                    ctx.beginPath();
+                    ctx.arc(x, y, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = ds.color;
+                    ctx.fill();
+                });
+            });
+            
+            // Draw target line if specified
+            if (options.targetLine) {
+                const targetY = padding.top + chartHeight - ((options.targetLine.value - minVal) / range) * chartHeight;
+                ctx.strokeStyle = options.targetLine.color || '#fbbf24';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(padding.left, targetY);
+                ctx.lineTo(width - padding.right, targetY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+        
+        function drawBarChart(canvasId, data, options = {}) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const width = canvas.parentElement.clientWidth;
+            const height = parseInt(canvas.getAttribute('height'));
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            const padding = { top: 15, right: 15, bottom: 30, left: 30 };
+            const chartWidth = width - padding.left - padding.right;
+            const chartHeight = height - padding.top - padding.bottom;
+            
+            ctx.clearRect(0, 0, width, height);
+            
+            const values = data.values.filter(v => v !== null);
+            if (values.length === 0) {
+                ctx.fillStyle = '#64748b';
+                ctx.font = '14px -apple-system, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Нет данных', width / 2, height / 2);
+                return;
+            }
+            
+            const maxVal = options.maxY ?? Math.max(...values, 1);
+            const barCount = data.values.length;
+            const barWidth = (chartWidth / barCount) * 0.7;
+            const gap = (chartWidth / barCount) * 0.3;
+            
+            data.values.forEach((val, i) => {
+                const x = padding.left + (chartWidth / barCount) * i + gap / 2;
+                const barHeight = val !== null ? (val / maxVal) * chartHeight : 0;
+                const y = padding.top + chartHeight - barHeight;
+                
+                // Bar
+                const gradient = ctx.createLinearGradient(x, y, x, y + barHeight);
+                gradient.addColorStop(0, data.color || '#3b82f6');
+                gradient.addColorStop(1, data.colorEnd || data.color || '#3b82f6');
+                
+                ctx.fillStyle = val !== null ? gradient : 'rgba(255,255,255,0.05)';
+                ctx.beginPath();
+                ctx.roundRect(x, y, barWidth, barHeight || 2, 4);
+                ctx.fill();
+                
+                // Label
+                ctx.fillStyle = '#64748b';
+                ctx.font = '10px -apple-system, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(data.labels?.[i] || '', x + barWidth / 2, height - 8);
+            });
+        }
+        
+        function updateTrends() {
+            const data = getHistoricalData(trendsPeriod);
+            
+            // BP Chart
+            const bpSysData = data.map(d => d.morning?.bp_sys || null);
+            const bpDiaData = data.map(d => d.morning?.bp_dia || null);
+            const labels = data.map(d => d.shortLabel);
+            
+            drawLineChart('bpChart', [
+                { data: bpSysData, color: '#ef4444', labels },
+                { data: bpDiaData, color: '#3b82f6', labels }
+            ], { minY: 60, maxY: 160, targetLine: { value: 130, color: '#fbbf24' } });
+            
+            // BP Stats
+            const validBpSys = bpSysData.filter(v => v !== null);
+            const avgSys = validBpSys.length ? Math.round(validBpSys.reduce((a, b) => a + b, 0) / validBpSys.length) : null;
+            const validBpDia = bpDiaData.filter(v => v !== null);
+            const avgDia = validBpDia.length ? Math.round(validBpDia.reduce((a, b) => a + b, 0) / validBpDia.length) : null;
+            
+            document.getElementById('bpStats').innerHTML = avgSys ? `
+                <div class="chart-stat">
+                    <div class="chart-stat-value ${avgSys < 130 ? 'good' : avgSys < 140 ? 'warning' : 'bad'}">${avgSys}/${avgDia}</div>
+                    <div class="chart-stat-label">Среднее</div>
+                </div>
+                <div class="chart-stat">
+                    <div class="chart-stat-value">${Math.min(...validBpSys)}</div>
+                    <div class="chart-stat-label">Мин сис.</div>
+                </div>
+                <div class="chart-stat">
+                    <div class="chart-stat-value">${Math.max(...validBpSys)}</div>
+                    <div class="chart-stat-label">Макс сис.</div>
+                </div>
+            ` : '<div class="no-data-message">Нет данных</div>';
+            
+            // Oura Chart
+            const ouraData = data.map(d => d.morning?.oura || null);
+            drawLineChart('ouraChart', [
+                { data: ouraData, color: '#8b5cf6', labels }
+            ], { minY: 40, maxY: 100, targetLine: { value: 70, color: '#fbbf24' } });
+            
+            const validOura = ouraData.filter(v => v !== null);
+            const avgOura = validOura.length ? Math.round(validOura.reduce((a, b) => a + b, 0) / validOura.length) : null;
+            
+            document.getElementById('ouraStats').innerHTML = avgOura ? `
+                <div class="chart-stat">
+                    <div class="chart-stat-value ${avgOura >= 80 ? 'good' : avgOura >= 65 ? 'warning' : 'bad'}">${avgOura}</div>
+                    <div class="chart-stat-label">Среднее</div>
+                </div>
+                <div class="chart-stat">
+                    <div class="chart-stat-value">${Math.max(...validOura)}</div>
+                    <div class="chart-stat-label">Лучший</div>
+                </div>
+                <div class="chart-stat">
+                    <div class="chart-stat-value">${validOura.filter(v => v >= 70).length}/${validOura.length}</div>
+                    <div class="chart-stat-label">Дней ≥70</div>
+                </div>
+            ` : '<div class="no-data-message">Нет данных</div>';
+            
+            // Nutrition Chart
+            const caloriesData = data.map(d => d.meals.length ? d.meals.reduce((sum, m) => sum + (m.calories || 0), 0) : null);
+            const proteinData = data.map(d => d.meals.length ? d.meals.reduce((sum, m) => sum + (m.protein || 0), 0) : null);
+            
+            drawLineChart('nutritionChart', [
+                { data: caloriesData.map(v => v ? v / 21 : null), color: '#8b5cf6', labels }, // Scale calories to fit with protein
+                { data: proteinData, color: '#10b981', labels }
+            ], { minY: 0, maxY: 220, targetLine: { value: 100, color: '#fbbf24' } });
+            
+            const validCal = caloriesData.filter(v => v !== null);
+            const avgCal = validCal.length ? Math.round(validCal.reduce((a, b) => a + b, 0) / validCal.length) : null;
+            const validProt = proteinData.filter(v => v !== null);
+            const avgProt = validProt.length ? Math.round(validProt.reduce((a, b) => a + b, 0) / validProt.length) : null;
+            
+            document.getElementById('nutritionStats').innerHTML = avgCal ? `
+                <div class="chart-stat">
+                    <div class="chart-stat-value">${avgCal}</div>
+                    <div class="chart-stat-label">Ккал/день</div>
+                </div>
+                <div class="chart-stat">
+                    <div class="chart-stat-value ${avgProt >= 180 ? 'good' : avgProt >= 150 ? 'warning' : 'bad'}">${avgProt}г</div>
+                    <div class="chart-stat-label">Белок/день</div>
+                </div>
+                <div class="chart-stat">
+                    <div class="chart-stat-value">${validCal.length}</div>
+                    <div class="chart-stat-label">Дней трекинга</div>
+                </div>
+            ` : '<div class="no-data-message">Нет данных</div>';
+            
+            // Habits Chart
+            const habitsData = data.map(d => {
+                const min = ['steps_min', 'protein_meal', 'breathing'];
+                const done = min.filter(id => d.habits[id]).length;
+                return done;
+            });
+            
+            drawBarChart('habitsChart', {
+                values: habitsData,
+                labels,
+                color: '#10b981',
+                colorEnd: '#059669'
+            }, { maxY: 3 });
+            
+            const daysComplete = habitsData.filter(v => v === 3).length;
+            document.getElementById('habitsStats').innerHTML = `
+                <div class="chart-stat">
+                    <div class="chart-stat-value ${daysComplete >= trendsPeriod * 0.8 ? 'good' : daysComplete >= trendsPeriod * 0.5 ? 'warning' : 'bad'}">${daysComplete}/${trendsPeriod}</div>
+                    <div class="chart-stat-label">Дней в системе</div>
+                </div>
+                <div class="chart-stat">
+                    <div class="chart-stat-value">${Math.round(daysComplete / trendsPeriod * 100)}%</div>
+                    <div class="chart-stat-label">Выполнение</div>
+                </div>
+            `;
+            
+            // Breathing Chart
+            const breathingData = data.map(d => d.breathing.length ? d.breathing.reduce((sum, s) => sum + (s.duration || 0), 0) : null);
+            
+            drawBarChart('breathingChart', {
+                values: breathingData.map(v => v || 0),
+                labels,
+                color: '#8b5cf6',
+                colorEnd: '#7c3aed'
+            }, { maxY: 30 });
+            
+            const validBreathing = breathingData.filter(v => v !== null && v > 0);
+            const avgBreathing = validBreathing.length ? Math.round(validBreathing.reduce((a, b) => a + b, 0) / validBreathing.length) : 0;
+            
+            document.getElementById('breathingStats').innerHTML = `
+                <div class="chart-stat">
+                    <div class="chart-stat-value">${avgBreathing}</div>
+                    <div class="chart-stat-label">Мин/день</div>
+                </div>
+                <div class="chart-stat">
+                    <div class="chart-stat-value">${validBreathing.length}</div>
+                    <div class="chart-stat-label">Дней практики</div>
+                </div>
+            `;
+            
+            // Summary
+            document.getElementById('summaryDaysInSystem').textContent = daysComplete;
+            document.getElementById('summaryStreak').textContent = '🔥 ' + (userData.stats?.current_streak || 0);
+            document.getElementById('summaryAvgBP').textContent = avgSys ? `${avgSys}/${avgDia}` : '—';
+            document.getElementById('summaryAvgOura').textContent = avgOura || '—';
+        }
+        
+        // === INIT ===
+        async function init() {
+            await loadData();
+            document.getElementById('morningDate').textContent = formatDate(today);
+            
+            // Проверяем Oura
+            checkOuraAvailable();
+            
+            if (!API_KEY) { showScreen('setup'); return; }
+            if (todayData?.morning) { showScreen('main'); updateMain(); }
+            else { showScreen('morning'); }
+        }
+        
+        setTimeout(init, 500);
+    </script>
+</body>
+</html>
